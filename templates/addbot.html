@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Create Bot</h2>
+    <div style="text-align:center;">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <table style="text-align:right; margin:auto;">
+                <tr>
+                    <td>{{ form.name.label }}: </td><td>{{ form.name }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.key.label }}: </td><td>{{ form.key }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.secret.label }}: </td><td>{{ form.secret }}</td>
+                </tr>
+            </table><br>
+            {{ form.submit }}
+        </form>
+    </div>
+    <div class="button-container">
+        <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
+    </div>
+</div>
+{% endblock %}

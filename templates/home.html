@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Welcome {{ user.name }}</h2>
+    <div>
+        <table>
+            <tr>
+                <td style="text-align: right;">Total Equity : </td><td> R{{ user.equity|round(2) }}</td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Bots : </td><td> {{ bots|length }}</td>
+            </tr>
+        </table>
+    </div>
+    <div class="button-container">
+        <a class="button" href="{{ url_for('config') }}">Profile</a>
+        {% if user.verified == 1 %}
+        <a class="button" href="{{ url_for('addbot') }}">Add Bot</a>
+        <a class="button" href="{{ url_for('buy') }}">Buy Credits</a>
+        {% endif %}
+        <a class="button" href="{{ url_for('logout') }}">Logout</a>
+    </div>
+    <br>
+    <p style="text-align:center;">{{ user.credits|round(2) }} Credits Remaining | 
+        {% if user.time > 0 %}
+            {{ (user.time/86400)|round(1) }} Days Remaining</p>
+        {% else %}
+            No bots running
+        {% endif %}
+</div>
+
+<script>
+    function updateBot(id, chart){
+        let url = '/botstats/'+id
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('bot_'+id+'_name').innerHTML = data.name;
+                if (data.status){
+                    document.getElementById('bot_'+id+'_status').innerHTML = "Running . . .";
+                }else{
+                    document.getElementById('bot_'+id+'_status').innerHTML = "Paused";
+                }
+                document.getElementById('bot_'+id+'_equity').innerHTML = String(Math.round(data.equity*100)/100)+" "+String(data.currency).toUpperCase();
+                if (data.transaction.type=="BUY"){
+                    document.getElementById('bot_'+id+'_previous').innerHTML = "Brought "+String(Math.round(data.transaction.volume*100000000)/100000000)+String(data.transaction.base).toUpperCase()+" @ "+String(Math.round(data.transaction.price*100)/100)+" "+String(data.transaction.quote).toUpperCase()+" per coin"
+                }
+                else if (data.transaction.type=="SELL"){
+                    document.getElementById('bot_'+id+'_previous').innerHTML = "Sold "+String(Math.round(data.transaction.volume*100000000)/100000000)+String(data.transaction.base).toUpperCase()+" @ "+String(Math.round(data.transaction.price*100)/100)+" "+String(data.transaction.quote).toUpperCase()+" per coin"
+                }
+                else{
+                    document.getElementById('bot_'+id+'_previous').innerHTML = '~'
+                }
+                document.getElementById('bot_'+id+'_highswing').innerHTML = String(data.accountDetails.high_account).toUpperCase()+" ~ "+String(data.accountDetails.high_swing)+"%"
+                document.getElementById('bot_'+id+'_lowswing').innerHTML = String(data.accountDetails.low_account).toUpperCase()+" ~ "+String(data.accountDetails.low_swing)+"%"
+                document.getElementById('bot_'+id+'_profit').innerHTML = String(Math.round(data.profit*100)/100)+"("+String(Math.round(data.realizedProfit*100)/100)+") "+String(data.currency).toUpperCase()
+                const chartData = {
+                    labels: data.chartDates,
+                    datasets:[{
+                        data: data.chartCount,
+                        label:"Trades per Day",
+                        borderWidth: 1.5,
+                        backgroundColor: "lightblue",
+                        borderRadius: 5,
+                        borderColor: "blue"
+                    }]
+                };
+                chart.data = chartData;
+                chart.update('none');
+            })
+    }
+</script>
+{% if bots %}
+    {% for botID in bots %}
+    <br>
+    <div class="sub">
+        <h2><span id='bot_{{ botID }}_name'></span>&emsp;</h2>
+        <hr>
+        <table>
+            <tr>
+                <td style="text-align: right;">Status: </td><td id="bot_{{ botID }}_status">Fetching . . .</td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Equity: </td><td id="bot_{{ botID }}_equity">Fetching . . .</td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Previous Trade: </td><td id="bot_{{ botID }}_previous">Fetching . . .</td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Up Swing: </td><td id="bot_{{ botID }}_highswing">Fetching . . .</td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Down Swing: </td><td id="bot_{{ botID }}_lowswing">Fetching . . .</td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Annual Profit(Realized): </td><td id="bot_{{ botID }}_profit">Fetching . . .</td>
+            </tr>
+        </table><br>
+        <canvas id="bot_{{ botID }}_graph" class="graph"></canvas>
+        <div class="button-container" style="text-align: center;">
+        <a class="button" href="{{ url_for('botconfig',id=botID) }}">Config</a><br>
+        <a class="button" href="{{ url_for('botreport',id=botID) }}">Detailed Report</a>
+        </div>
+    </div>
+    <script>
+        let chart_{{ botID }} = new Chart("bot_{{ botID }}_graph",{
+            type: 'bar',
+            data: {
+                labels: null,
+                datasets:null,
+
+            },
+            options:{
+                scales:{
+                    x:{
+                        display:false
+                    },
+                    y:{
+                        suggestedMax:5,
+                        beginAtZero: true
+                    }
+                },
+                plugins:{
+                    legend:{
+                        display:false
+                    },
+                    title:{
+                        text:"Trades per Day",
+                        display:true
+                    }
+                }
+            }
+        });
+
+        updateBot('{{ botID }}', chart_{{ botID }})
+        setInterval(updateBot,30000,'{{ botID }}', chart_{{ botID }});
+    </script>
+    {% endfor %}
+    {% endif %}
+{% endblock %}

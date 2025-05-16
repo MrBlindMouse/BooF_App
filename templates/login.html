@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Welcome to BooF</h2>
+    <p ><b>BooF</b> is self regulating, un-supervised crypto trading bot built for the <a href="https://www.valr.com">VALR</a> crypto exchange platform. Based on the re-balance(mean-revision) trading strategy, BooF aims capitalize on the turbulance of the crypto market. Read our About and HowTo pages <i>linked below</i> to find out more, or sign up to get started!</p>
+    <h3>Log In</h3>
+    <div style="text-align:center;">
+        <form method="POST">
+            <table style="text-align:right; margin:auto;">
+                {{ form.hidden_tag() }}
+                <tr>
+                    <td>{{ form.email.label }}: </td><td>{{ form.email }}</td>
+                    {% if form.email.errors %}
+                    <span style="color: red;">{{ form.email.errors[0] }}</span><br>
+                    {% endif %}
+                </tr>
+                <tr>
+                    <td>{{ form.password.label }}: </td><td>{{ form.password }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.permanent }}</td><td style="text-align:left;"> ~ {{ form.permanent.label }}</td>
+                </tr>
+            </table>
+            
+            {{ form.submit }}
+        </form>
+    </div>
+    <div class="button-container">
+        <a class="button" href="{{ url_for('signup') }}">~ Signup here ~</a>
+        <a class="button" href="{{ url_for('reset') }}">~ Reset Password ~</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BooF</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/boof_logo.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='/font-awesome/css/font-awesome.min.css') }}">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body background="{{ url_for('static',filename='images/boof_background.webp') }}">
+    <div class="main">
+        <div class="side"></div>
+        <div class="center">
+            <br>
+            <a href="{{ url_for('home') }}"><img src="{{ url_for('static',filename='images/boof.png') }}" style="width: 320px; display:flex; margin: auto;"/></a>
+            <br>
+            {% if messages %}
+            <div class="message">
+                {% for message in messages %}
+                <h3 class="{{ message.type }}">{{ message.message }}</h3>
+                {% endfor %}
+            </div>
+            <br>
+            {% endif %}
+            {% block content %}
+            {% endblock %}
+            <br>
+            <footer>
+                <div class="button-container">
+                    <a class="button" href="{{ url_for('about') }}">About</a>
+                    <a class="button" href="{{ url_for('howto') }}">HowTo</a>
+                    <a class="button" href="{{ url_for('terms') }}">T&C's</a>
+                    <a class="button" href="{{ url_for('market') }}">Market Analysis</a>
+                </div>
+                <p style="display: flexbox; margin: auto;">BooF was <i class="fa fa-code" aria-hidden="true"></i> with <i class="fa fa-heart" aria-hidden="true"> by <a href="https://www.bmd-studios.com" target="_blank" style="color: black;">MrBlindMouse</a></i></p> 
+            </footer>
+        </div>
+        <div class="side"></div>
+    </div>
+</body>
+</html>

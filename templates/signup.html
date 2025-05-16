@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Welcome to BooF</h2>
+    <h3>Signup</h3>
+    <div style="text-align:center;">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <table style="text-align:right; margin:auto;">
+                <tr>
+                    <td>{{ form.name.label }}: </td><td>{{ form.name }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.email.label }}: </td><td>{{ form.email }}
+                    {% if form.email.errors %}
+                        <span style="color: red;">{{ form.email.errors[0] }}</span><br>
+                    {% endif %}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.password.label }}: </td><td>{{ form.password }}</td>
+                    {% if form.password.errors %}
+                        <span style="color: red;">{{ form.password.errors[0] }}</span><br>
+                    {% endif %}
+                </tr>
+                <tr>
+                    <td>{{ form.confirm_password.label }}: </td><td>{{ form.confirm_password }}</td>
+                    {% if form.confirm_password.errors %}
+                        <span style="color: red;">{{ form.confirm_password.errors[0] }}</span><br>
+                    {% endif %}
+                </tr>
+            </table>
+            {{ form.submit }}<br><br>
+        </form>
+    </div>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+</div>
+{% endblock %}

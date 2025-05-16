@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Password Reset</h2>
+    <p>By filling out and submitting the form below you request that the password of the supplied account be reset. An email will be sent containing instructions for confirmation.</p><br>
+    <div style="text-align:center;">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <table style="text-align:right; margin:auto;">
+                <tr>
+                    <td>{{ form.email.label }}: </td><td>{{ form.email }}</td>
+                    {% if form.email.errors %}
+                    <span style="color: red;">{{ form.email.errors[0] }}</span><br>
+                    {% endif %}
+                </tr>
+            </table><br>
+            {{ form.submit }}
+        </form>
+    </div>
+</div>
+{% endblock %}

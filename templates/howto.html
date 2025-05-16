@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub"><h2>How to Operate BooF Bots</h2>
+    <h3>Step 1 ~ VALR Sub Account</h3>
+    <p>Assuming you already have a VALR account with 2-factor authentication.</p>
+    <p>On the desktop website, using the top-right dropdown menu, create a new sub-account.</p>
+    <h3>Step 2 ~ API Keys</h3>
+    <p>With the new sub-account active, again using the top-right dropdown menu, click on 'API Keys' and select 'Create New Key'.</p>
+    <h3>Step 3 ~ API Key Access</h3>
+    <p>Select both 'View' and 'Trade' access for the API key, following the instructions and saving the Key and Secret codes somewhere secure.</p>
+    <p>The bot requires both View and Trade access to operate.</p>
+    <h3>Step 4 ~ BooF Bot</h3>
+    <p>After you've created an account with BooF and logged in, click on the "+Create Bot" tab.</p>
+    <p>You'll be directed to a form asking for a Name, Key, and Secret. The name is for your own use only, but the Key and Secret codes need to be the ones obtained from VALR in the previous step.</p>
+    <p>The bot will not be created if the Key and Secret codes are not valid.</p>
+    <p>Click on "Create".</p>
+    <h3>Step 5 ~ Bot Config</h3>
+    <p>You'll be directed back to the home page, where the new bot will be visible.</p>
+    <p>Click on the <b>Config</b> button at the bottom of the bot's section.</p>
+    <p>Set the quote currency the bot should balance with ("ZAR", "USDC", "USDT").</p>
+    <p>Set the margin to between 1% and 15%, and click "Accept".</p>
+    <h3>Step 6 ~ Start</h3>
+    <p>On the bot's tab, click "Start" to start the bot. Bots can be paused at any time.</p>
+    <p>To increase investment, simply deposit currency into the sub-account, and the bot will do the rest. If a currency is detected that the bot cannot trade, a notice will be posted.</p>
+    <br/>
+    <h2>Note:</h2>
+    <p>The bot will automatically buy the maximum available cryptocurrencies available for the relevant quote currency, based on minimum trade and margin, and adjust as the total value available changes.</p>
+    <p>If there is not enough equity available to trade, then the bot will increase the margin until trading is possible.</p>
+    <p>A minimum investment of R10 000 is recommended for the bot to run cost-effectively, but less is possible.</p>
+    <p>To run the bot for 4 weeks costs 1 credit, with 1 credit costing R160.</p><br>
+    <p><b>As a signup bonus will gifted to you to test out the bots.</b></p>
+    <br>
+    <hr>
+    <p>Following is a list of cryptocurrencies to balance with each quote currency (at time of writing):</p><br>
+    <p><b>ZAR</b>: AVAX, BNB, BTC, DOGE, ETH, SHIB, SOL, TRX, XAUT, XRP</p>
+    <p><b>USDC</b>: AVAX, BTC, ETH, SOL, XRP</p>
+    <p><b>USDT</b>: ETH, SOL, AVAX, WIF, JUP, BOME, PYTH, W, MEME, ORDER, ZRO, BNB, POPCAT, PNUT, GOAT, NEIRO, PENGU, SWEAT, AGRI, SHIB, XAUT, S, DOGE, TRX, BTC, AVAX, DOGE, SOL, TRUMP, XRP, ETH, XRP, BTC</p>
+    <br>
+    <p>The bot will trigger a buy/sell when the individual crypto's value has deviated from the average by more than the margin, then reverted by a fraction of the margin. This is for the purpose of buying/selling the peaks and valleys instead of just when the margin has been reached.</p>
+    <p>The bot's rebalancing (mean-reversion) strategy prefers a horizontal market and suffers under a trending market. To remedy this, weight refinement and dynamic margins have been introduced to limit the impact of a downtrend and profit from an uptrend, but these adjustments can have a negative impact on the core strategy.</p>
+    <p>An account's balancing (weight) can be adjusted based on the crypto price's trend, and the margin can be adjusted based on the crypto's volatility (beta). The dynamic margin has a 20% influence, and refined weight limits a up to 50% on a down trend</p>
+    <p>It is suggested to set the config of the bot before activating and not tamper with it afterward to avoid upsetting the bot's buy/sell pattern.</p>
+    <p>A portion of the investment will be staked (where possible), but lending will not be made available due to the 1-hour lock on funds.</p>
+
+</div>
+{% endblock %}

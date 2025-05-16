@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Update Profile</h2>
+    <div style="text-align:center;">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <table style="text-align:right; margin:auto;">
+                <tr>
+                    <td>{{ form.name.label }}: </td><td>{{ form.name }}</td>
+                </tr>
+                <tr><td>----------</td><td style="text-align:left">To Update Password</td></tr>
+                <tr>
+                    <td>{{ form.oldPassword.label }}: </td><td>{{ form.oldPassword }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.password.label }}: </td><td>{{ form.password }}</td>
+                    {% if form.password.errors %}
+                        <span style="color: red;">{{ form.password.errors[0] }}</span><br>
+                    {% endif %}
+                </tr>
+                <tr>
+                    <td>{{ form.confirm_password.label }}: </td><td>{{ form.confirm_password }}</td>
+                    {% if form.confirm_password.errors %}
+                        <span style="color: red;">{{ form.confirm_password.errors[0] }}</span><br>
+                    {% endif %}
+                </tr>
+            </table><br>
+            {{ form.submit }}
+        </form>
+    </div>
+    <div class="button-container">
+        <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
+        {% if not verified %}
+        <a class="button" href="{{ url_for('resend') }}">~ Resend Verification ~</a>
+        {% else %}
+        <a class="button" href="{{ url_for('close') }}">~ Close Account ~</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

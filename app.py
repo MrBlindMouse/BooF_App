@@ -1,0 +1,815 @@
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField, BooleanField, PasswordField, HiddenField, SelectField, IntegerField, RadioField
+from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, NumberRange
+from dotenv import dotenv_values
+import time, json
+import hashlib, base64, hmac
+import shortuuid
+
+import db, valr, postmark
+
+app = Flask("BooF")
+envConfig = dotenv_values(".env")
+app.config["SECRET_KEY"] = envConfig["APP_SECRET"]
+app.config['PERMANENT_SESSION_LIFETIME'] = 604800
+app.config['SESSION_COOKIE_SECURE'] = False #Set to True in production
+app.config['SESSION_COOKIE_SAMESITE']='Strict' #Set to 'Lax' from 'Strict' if something strange happens with cookies
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_TIME = 15*60
+
+# Forms
+class loginForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    permanent = BooleanField("Keep me signed in", default=False)
+    submit = SubmitField("Login")
+
+class signupForm(FlaskForm):
+    name = StringField("Username", validators=[DataRequired(),Length(min=3, max=20, message="Username must be 3-20 characters long")])
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, message="Password must be at least 8 characters")], name='password')
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password', message="Passwords must match")])
+    submit = SubmitField('Sign Up')
+
+    def validate_email(self, email):
+        user = db.getUsers(email=email.data)
+        if user:
+            raise ValidationError('That email is already registered.')
+
+def profileForm(user):
+    class Form(FlaskForm):
+        name = StringField("Username", validators=[DataRequired(),Length(min=3, max=20, message="Username must be 3-20 characters long")], default=user.name)
+        oldPassword = PasswordField("Previous Password")
+        password = PasswordField("New Password", validators=[Length(min=8, message="Password must be at least 8 characters")])
+        confirm_password = PasswordField('Confirm New Password', validators=[EqualTo('password', message="Passwords must match")])
+        submit = SubmitField('Update')
+    return Form()
+
+class createBotForm(FlaskForm):
+    name = StringField("Username", validators=[DataRequired(),Length(min=3, max=20, message="Bot name must be 3-20 characters long")], default="BooF Bot")
+    key = StringField("API Key", validators=[DataRequired()])
+    secret = StringField("API Secret", validators=[DataRequired()])
+    submit = SubmitField("Create")
+
+def botConfigForm(bot = db.Bot):
+    class Form(FlaskForm):
+        name = StringField("Bot Name",validators=[DataRequired(),Length(min=3, max=20, message="Username must be 3-20 characters long")], default=bot.name)
+        currency = SelectField("Bot Currency", choices=["ZAR","USDC","USDT"], default=bot.currency)
+        margin = IntegerField("Trading Margin", validators=[DataRequired(), NumberRange(min=2, max=15)], default=int(bot.margin*100))
+        refinedWeight = BooleanField("Refined Weight", default=bot.refined_weight)
+        dynamicMargin = BooleanField("Dynamic Margin", default=bot.dynamic_margin)
+        active = BooleanField("Active", default=bot.active)
+        submit = SubmitField("Update")
+    return Form()
+
+def userLogin(email, password):
+    user = db.getUsers(email=email)
+    if user and user.password == password:
+        return True
+    else:
+        return False
+
+class createResetForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    submit = SubmitField("Reset")
+
+#Utill
+
+def trunc(value,dec):
+    a = int(value*(10**dec))
+    return float(a/(10**dec))
+
+def userVerificationEmail(user = db.User):
+    config = valr.Config()
+    config.loadState()
+    key = config.verifySalt
+    ts = int(time.time())
+
+    recipient = user.email
+
+    verifyKey = encodeToken(user.id, key, ts=ts)
+    token=db.Token([0,verifyKey,ts,user.id,"VERIFY",24])
+    token.post()
+
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>Thank you for creating an account with us.<p>
+        <p style='color:black;'>To verify your account please following the link below:</p>
+        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">Verify Link</a></p>
+        <p style='color:black;'>- or -</p>
+        <p style='color:black;'>Copy the following into you web browser:</p>
+        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">https://www.boof-bots.com/verify/{verifyKey}</a></p>
+        <p style='color:black;'>The Verification link will only stay active for 24 hours. If this time has passed, please request another email in your profile page.</p><br>
+        <p style='color:black;'>Once you account has been verified you'll be able to create and configure bots for your VALR account!</p><br><br>
+        <p style='color:black;'>Hope all goes well!</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    htmlBody = render_template('emailBase.html', message=body)
+    postmark.sendMail(config.postmarkKey, htmlBody, "BooF Account Verivication", recipient=recipient)
+
+def encodeToken(id, key, ts=None):
+    if ts == None:
+        ts = int(time.time())
+    
+    payload = {
+        "id":id,
+        "ts":ts,
+        "nonce":shortuuid.ShortUUID().random(8)
+    }
+
+    jsonPayload = json.dumps(payload, sort_keys=True)
+    bytesPayload = jsonPayload.encode('utf-8')
+    encodedPayload = base64.urlsafe_b64encode(bytesPayload).decode('utf-8').rstrip('=')
+
+    hmacObj = hmac.new(key.encode('utf-8'), encodedPayload.encode('utf-8'), hashlib.sha256)
+    sig = base64.urlsafe_b64encode(hmacObj.digest()).decode('utf-8').rstrip('=')
+
+    return f"{encodedPayload}.{sig}"
+
+def decodeToken(token):
+    config = valr.Config()
+    config.loadState()
+    key = config.verifySalt
+    encodedPayload, sig = token.split('.')
+    hmacObj = hmac.new(key.encode('utf-8'), encodedPayload.encode('utf-8'), hashlib.sha256)
+    expectedSig = base64.urlsafe_b64encode(hmacObj.digest()).decode('utf-8').rstrip('=')
+    if not hmac.compare_digest(sig, expectedSig):
+        return False
+    encodedPayload += '=' * (-len(encodedPayload) % 4)
+    bytesPayload = base64.urlsafe_b64decode(encodedPayload)
+    payload = json.loads(bytesPayload.decode('utf-8'))
+    if 'id' not in payload or 'ts' not in payload or 'nonce' not in payload:
+        return False   
+    return payload
+
+def passwordResetEmail(user=db.User):
+    config = valr.Config()
+    config.loadState()
+    key = config.verifySalt
+    ts = int(time.time())
+    
+    verifyKey = encodeToken(user.id, key, ts=ts)
+    token=db.Token([0,verifyKey,ts,user.id,"RESET",1])
+    token.post()
+    
+    body=f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>A request to reset your password has been submitted. If this was not you, please ignore this email.<p>
+        <p style='color:black;'>To reset your password, click on the below link and follow the instructions on the webpage:</p>
+        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">Verify Link</a></p>
+        <p style='color:black;'>- or -</p>
+        <p style='color:black;'>Copy the following into you web browser:</p>
+        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">https://www.boof-bots.com/verify/{verifyKey}</a></p>
+        <p style='color:black;'>This link will only stay active for 1 hour. If this time has passed, please resubmit the request.</p><br><br>
+        <p style='color:black;'>Hope all goes well!</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+        """
+    htmlBody = render_template('emailBase.html', message=body)
+    postmark.sendMail(config.postmarkKey, htmlBody, "Password Reset Request", recipient=user.email)
+
+
+#Routes
+
+@app.route('/', methods=["GET", "POST"])
+def login():
+    if 'id' in session and session.modified == False:
+        return redirect(url_for('home'))
+    message = []
+    if session.modified:
+        session.pop('id', default=None)
+        message.append({
+            "type":"ERROR",
+            "message":"Stop that!"
+        })
+
+    form = loginForm()
+
+    if "attempt" in session and session["attempt"] == MAX_FAILED_ATTEMPTS:
+        if int(time.time()) - session["last_attempt_time"] < LOCKOUT_TIME:
+            message.append({
+                "type":"ERROR",
+                "message":"Too many failed attempts, try again later."
+            })
+        else:
+            session.pop("attempt", None)
+            return redirect(url_for('login'))
+    else:
+        if form.validate_on_submit():
+            email = form.email.data
+            password = form.password.data
+            permanent = form.permanent.data
+            if userLogin(email,password):
+                if permanent:
+                    session.permanent = True
+                session.pop("attempt", None)
+                session.pop('last_attempt_time', None)
+                user = db.getUsers(email=email)
+                session["id"] = user.id
+                return redirect(url_for('home'))
+            else:
+                session["error"] = "Incorrect email or password"
+                session["last_attempt_time"] = int(time.time())
+                if "attempt" in session:
+                    session["attempt"] += 1
+                else:
+                    session["attempt"] = 1
+                time.sleep(1)
+                return redirect(url_for('login'))
+
+    if "error" in session:
+        message.append({
+                "type":"ERROR",
+                "message":session["error"]
+            })
+        session.pop("error", None)
+    if "message" in session:
+        message.append({
+                "type":"INFO",
+                "message":session["message"]
+            })
+        session.pop("message", None)
+
+    return render_template('login.html', form=form, messages=message)
+
+@app.route('/signup', methods=["GET","POST"])
+def signup():
+    form = signupForm()
+    if form.validate_on_submit():
+        ts = int(time.time())
+        name = form.name.data
+        email = form.email.data
+        password = form.password.data
+        newUser = db.User([0, name, email, password, ts, 0])
+        newUser.post()
+        user = db.getUsers(email=newUser.email)
+        bonus = db.Credit([0, user.id, 0, "", 0, 4, "BONUS", int(time.time())])
+        bonus.post()
+        userVerificationEmail(user)
+        message = db.Message([0, user.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
+        message.post()
+        session["message"] = "Signup Successful! Please log in using email and password"
+        valr.logPost("New user signed up",'1')
+        return redirect(url_for('login'))
+    return render_template("signup.html", form=form)
+
+
+@app.route('/home')
+def home():
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    if 'id' not in session:
+        return redirect(url_for('login'))
+
+    #Loading User data  
+    userData = db.getUsers(id=session["id"])
+    credits = db.getCredits(user_id=userData.id)
+    user={
+        "name":userData.name,
+        "equity":0,
+        "verified":userData.verified,
+        "credits": credits["credit"],
+        "time": credits["time"]
+    }
+
+    config = valr.Config()
+    config.loadState()
+    bots = []
+    botData = db.getBots(user_id=session["id"])
+    for bot in botData:
+        bots.append(bot.id)
+        if bot.currency == "ZAR":
+            user["equity"] += bot.equity
+        elif bot.currency == "USDC":
+            user["equity"] += bot.equity*config.USDCZAR
+        elif bot.currency == "USDT":
+            user["equity"] += bot.equity*config.USDTZAR
+
+    #Loading User messages
+    messages = []
+    if userData.verified != 1:
+        messages.append({
+            "type":"WARNING",
+            "message":"Account not verified."
+        })
+    if "message" in session:
+        messages.append({
+            "type":"INFO",
+            "message":session["message"]
+        })
+        session.pop("message", None)  
+    if "error" in session:
+        messages.append({
+            "type":"ERROR",
+            "message":session["error"]
+        })
+        session.pop("error", None)
+    userMessages = db.getMessages(userData.id)
+    for message in userMessages:
+        messages.append({
+            "type":message.message_type,
+            "message":message.message
+        })
+        message.delete()
+
+
+    return render_template('home.html', messages=messages, user=user, bots=bots)
+
+@app.route('/botstats/<id>')
+def botstats(id):
+    if 'id' not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    bot = db.getBots(id=id)
+    if not bot:
+        abort(400)
+    if bot.user_id != session['id']:
+        abort(400)
+
+    #Loading Bot data
+    now = int(time.time())
+    bot = db.getBots(id=id)
+    accountDetails={
+        "high_account":'',
+        "high_swing":0,
+        "low_account":'',
+        "low_swing":0
+    }
+    transaction = {}
+    profit = 0
+    botResult={
+        "name": bot.name,
+        "id":bot.id,
+        "status": bot.active,
+        "currency": bot.currency,
+        "equity": bot.equity,
+        "transaction":{},
+        "accountDetails":{
+                "high_account":'',
+                "high_swing":0,
+                "low_account":'',
+                "low_swing":0
+            },
+        "profit": 0,
+        "realizedProfit":0,
+        "chartDates":[],
+        "chartCount":[]
+        }
+    accounts = db.getActiveAccounts(bot_id=bot.id)
+    for account in accounts:
+        if account.direction == "UP" and trunc((account.swing*100),2) > botResult["accountDetails"]["high_swing"]:
+            botResult["accountDetails"]["high_swing"] = trunc((account.swing*100),2)
+            botResult["accountDetails"]["high_account"] = account.base
+        elif account.direction == "DOWN" and trunc((account.swing*100),2) > botResult["accountDetails"]["low_swing"]:
+            botResult["accountDetails"]["low_swing"] = trunc((account.swing*100),2)
+            botResult["accountDetails"]["low_account"] = account.base
+    transactions = db.getTransactions(bot.id)
+    for line in reversed(transactions):
+        if line.type in ["BUY","SELL"]:
+            botResult["transaction"]={
+                "base":line.base,
+                "quote":line.quote,
+                "type":line.type,
+                "volume":line.volume,
+                "price":trunc((line.value/line.volume),2)
+            }
+            break
+    valrConfig = valr.Config()
+    valrConfig.loadState()
+    for account in accounts:
+        buyVolume = 0
+        buyValue = 0
+        sellVolume = 0
+        sellValue = 0
+        for line in transactions:
+            if line.base == account.base and line.quote == bot.currency and line.ts > (now-31536000):
+                if line.type == "BUY":
+                    buyVolume += line.volume
+                    buyValue += line.value
+                elif line.type == "SELL":
+                    sellVolume += line.volume
+                    sellValue += line.value
+        realizedProfit = 0
+        if sellVolume != 0 and buyVolume != 0:
+            realizedProfit = ((sellValue/sellVolume)-(buyValue/buyVolume))*min(sellVolume,buyVolume)
+        if sellVolume > buyVolume:
+            diff = sellVolume-buyVolume
+            buyVolume += diff
+            buyValue += diff*account.price(valrConfig)
+        elif sellVolume < buyVolume:
+            diff = buyVolume-sellVolume
+            sellVolume += diff
+            sellValue += diff*account.price(valrConfig)
+        totalProfit = 0
+        if sellVolume != 0 and buyVolume != 0:
+            totalProfit = ((sellValue/sellVolume)-(buyValue/buyVolume))*sellVolume
+        botResult["profit"] += totalProfit
+        botResult["realizedProfit"] += realizedProfit
+
+    ts = int(time.time())
+    dates = []
+    for i in range(28):
+        date = time.localtime(ts-(i*24*60*60))
+        dates.append(date)
+    for date in dates:
+        count = 0
+        for transaction in transactions:
+            entryDate = time.localtime(transaction.ts)
+            if date.tm_mday == entryDate.tm_mday:
+                count += 1
+        botResult["chartCount"].append(count)
+        botResult["chartDates"].append(str(time.strftime("%d %b",date)))
+    return botResult
+
+@app.route('/botreport/<id>')
+def botreport(id):
+    if 'id' not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    bot = db.getBots(id=id)
+    if bot.user_id != session['id']:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    data = {}
+    data['name'] = bot.name
+    data['status'] = bot.active
+    data['equity'] = bot.equity
+    data['currency'] = bot.currency
+    data["margin"] = int(bot.margin*100)
+    data['accounts'] = []
+    accounts = db.getActiveAccounts(bot_id=id)
+    transactions = db.getTransactions(bot_id=id)
+    for account in accounts:
+        accountEntry = {
+            "base":account.base,
+            "swing":account.swing,
+            "direction":account.direction,
+            "volume":account.volume,
+            "stake":account.stake,
+            "volumeBought":0,
+            "valueBought":0,
+            "volumeSold":0,
+            "valueSold":0,
+            "avgBuyPrice":0,
+            "avgSellPrice":0
+        }
+        for entry in transactions:
+            if entry.base == account.base and entry.quote == bot.currency:
+                if entry.type == "BUY":
+                    accountEntry["volumeBought"] += entry.volume
+                    accountEntry["valueBought"] += entry.value
+                elif entry.type == "SELL":
+                    accountEntry["volumeSold"] += entry.volume
+                    accountEntry["valueSold"] += entry.value
+        if accountEntry['volumeBought'] != 0:
+            accountEntry["avgBuyPrice"] = accountEntry["valueBought"]/accountEntry["volumeBought"]
+        if accountEntry['volumeSold'] != 0:
+            accountEntry["avgSellPrice"] = accountEntry["valueSold"]/accountEntry["volumeSold"]
+        
+        data["accounts"].append(accountEntry)
+    credit = db.getCredits(bot_id=id)
+    data["runtime"] = credit["time"]
+    data["cost"] = credit["credit"]
+    return render_template("report.html", data=data)
+
+
+@app.route('/botconfig/<id>', methods=["POST","GET"])
+def botconfig(id):
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    bot = db.getBots(id=id)
+    form = botConfigForm(bot)
+    if form.validate_on_submit():
+        name = form.name.data
+        currency = form.currency.data
+        margin = int(form.margin.data)/100
+        refinedWeight = bool(form.refinedWeight.data)
+        dynamicMargin = bool(form.dynamicMargin.data)
+        active = form.active.data
+
+        if currency != bot.currency:
+            valr.updateCurrency(currency, bot)
+            message = db.Message([0,bot.user_id,"INFO","Bot Currency changed!"])
+            message.post()
+        if name != bot.name or margin != bot.margin or refinedWeight != bot.refined_weight or dynamicMargin != bot.dynamic_margin:
+            bot.name = name
+            bot.margin = margin
+            bot.refined_weight = refinedWeight
+            bot.dynamic_margin = dynamicMargin
+            session["message"] = "Bot Config updated!"
+        if active != bot.active:
+            bot.active = active
+            bot.update()
+            if active:
+                message = db.Message([0,bot.user_id,"INFO",f"Bot '{bot.name}' started"])
+                message.post()
+                credit = db.Credit([0,bot.user_id,bot.id,'',0,0,'START',int(time.time())])
+                credit.post()
+            else:
+                message = db.Message([0,bot.user_id,"INFO",f"Bot '{bot.name}' paused"])
+                message.post()
+                credit = db.Credit([0,bot.user_id,bot.id,'',0,0,'PAUSE',int(time.time())])
+                credit.post()
+        return redirect(url_for('home'))
+    return render_template("botconfig.html", form=form, id=bot.id)
+
+@app.route('/logout')
+def logout():
+    if "id" in session:
+        session.pop("id", None)
+        session["message"] = "You have been logged out."
+    return redirect(url_for('login'))
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
+    
+@app.route('/howto')
+def howto():
+    return render_template('howto.html')
+    
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/verify/<uid>')
+def verify(uid):
+    data = decodeToken(uid)
+    if not data:
+        valr.logPost('Token altered!', '3')
+        return abort(404)
+    token = db.getToken(uid)
+    if not token:
+        valr.logPost(f'Fake Token Used!<br> Submitted token: {uid}', '3')
+        return abort(404)
+    if token.ts != int(data["ts"]) or token.user_id != int(data["id"]):
+        valr.logPost(f'Token altered!<br>DB token: {token.token}<br>Submitted token: {uid}', '3')
+        return abort(404)
+    ts = int(time.time())
+    if (ts-token.ts) > (token.period*60*60):
+        valr.logPost(f'Expired token used,<br>token: {uid}', '2')
+        return abort(404)
+    user = db.getUsers(id=token.user_id)
+    if not user:
+        valr.logPost(f'User for token does not exist, token: {token.token}', '3')
+        return abort(404)
+    if token.type == "VERIFY":
+        user.verified = 1
+        user.update()
+        message = db.Message([0,user.id,"INFO","Your account has successfully been verified!"])
+        message.post()
+        token.delete()
+        return render_template("verify.html", type="VERIFY", user=user.name)
+    elif token.type == "RESET":
+        newPassword = shortuuid.ShortUUID().random(8)
+        user.password = newPassword
+        user.update()
+        message = db.Message([0, user.id,"WARNING","Your password has been reset, change your password ASAP!"])
+        message.post()
+        token.delete()
+        return render_template("verify.html", user=user.name, type="RESET", password=newPassword)
+    return abort(404)
+
+@app.route('/config', methods=["GET","POST"])
+def config():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+
+    user = db.getUsers(id=session["id"])
+    form = profileForm(user)
+    verified = True if user.verified == 1 else False
+
+    if form.validate_on_submit():
+        if form.name.data != user.name:
+            user.name = form.name.data
+            user.update()
+            message = db.Message([0, user.id, "INFO", "Username Updated!"])
+            message.post()
+        if form.oldPassword.data and form.oldPassword.data == user.password:
+            user.password = form.password.data
+            user.update()
+            message = db.Message([0, user.id, "WARNING", "Password Updated!"])
+            message.post()
+
+        return redirect(url_for('home'))
+
+    return render_template("config.html", form=form, verified=verified)
+
+@app.route('/resend')
+def resend():
+    if 'id' not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    user = db.getUsers(id=session['id'])
+    userVerificationEmail(user)
+    message = db.Message([0,user.id,'INFO','Verification email has been resent'])
+    message.post()
+    valr.logPost(f"Verification email requested for {user.email}, ID:{user.id}",'1')
+    return redirect(url_for('home'))
+
+@app.route('/market')
+def market():
+    valrConfig = valr.Config()
+    valrConfig.loadState()
+    zarTrend = 0
+    zarRSI = 0
+    for line in valrConfig.ZAR:
+        zarTrend += line["trend"]
+        zarRSI += line["rsi"]
+    zarTrend = ((zarTrend/len(valrConfig.ZAR))+((zarRSI/len(valrConfig.ZAR))/50))/2
+    usdcTrend = 0
+    usdcRSI = 0
+    for line in valrConfig.USDC:
+        usdcTrend += line["trend"]
+        usdcRSI += line["rsi"]
+    usdcTrend = ((usdcTrend/len(valrConfig.USDC))+((usdcRSI/len(valrConfig.USDC))/50))/2
+    usdtTrend = 0
+    usdtRSI = 0
+    for line in valrConfig.USDT:
+        usdtTrend += line["trend"]
+        usdtRSI += line["rsi"]
+    usdtTrend = ((usdtTrend/len(valrConfig.USDT))+((usdtRSI/len(valrConfig.USDT))/50))/2
+    details={
+        "ZARList":valrConfig.ZAR,
+        "ZARTrend":trunc(zarTrend,2),
+        "USDCList":valrConfig.USDC,
+        "USDCTrend":trunc(usdcTrend,2),
+        "USDTList":valrConfig.USDT,
+        "USDTTrend":trunc(usdtTrend,2),
+    }
+    return render_template("market.html", details=details)
+
+@app.route('/addbot', methods=["POST","GET"])
+def addbot():
+    if not "id" in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+
+    form = createBotForm()
+    if form.validate_on_submit():
+        name = form.name.data
+        key = form.key.data
+        secret = form.secret.data
+        bots = db.getBots()
+        for bot in bots:
+            if bot.key == key:
+                if session["id"] != bot.user_id:
+                    message = db.Message([0, bot.user_id, "WARNING", "Someone tried to use your existing API key! Take steps to safeguard your VALR account!"])
+                    message.post()
+                    valr.logPost(f"User ID:{session['id']} just tried to use an API Key belonging to User ID:{bot.user_id}")
+                message = db.Message([0, session["id"], "WARNING", "You just tried to use an existing API key!"])
+                message.post()
+                return redirect(url_for('home'))
+        if valr.validateKeys(key, secret, session["id"]):
+            bot = db.Bot([0, session["id"], name, key, secret, "ZAR", False, 0, 0, 0, 0, False, False])
+            bot.post()
+            message = db.Message([0, session["id"], "INFO", "Success! New bot created!"])
+            message.post()
+        return redirect(url_for('home'))
+    return render_template('addbot.html', form=form)
+
+@app.route('/buy')
+def buy():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    return render_template('buy.html')
+
+@app.route('/reset', methods=["GET","POST"])
+def reset():
+    form = createResetForm()
+    if form.validate_on_submit():
+        email=form.email.data
+        user = db.getUsers(email=email)
+        passwordResetEmail(user)
+        session["message"]="Reset email has been sent, please check your email for futher instructions."
+        valr.logPost(f"Password Reset Requested for {user.email}, ID:{user.id}",'1')
+        return redirect(url_for("login"))
+    return render_template('reset.html', form=form)
+
+@app.route('/clear/<id>')
+def clear(id):
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    bot = db.getBots(id=id)
+    transactions = db.getTransactions(bot_id=bot.id)
+    for entry in transactions:
+        entry.delete()
+    message = db.Message([0,bot.user_id,"INFO",f"Transactions for Bot:'{bot.name}' has been cleared"])
+    message.post()
+    return redirect(url_for('home'))
+
+@app.route('/delete/<id>')
+def delete(id):
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+
+    bot = db.getBots(id=id)
+
+    if int(session['id']) != bot.user_id or bot == None:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+
+    return render_template('delete.html', name=bot.name, id=bot.id)
+
+@app.route('/deletebot/id')
+def deleteBot(id):
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+
+    bot = db.getBots(id=id)
+
+    if int(session['id']) != bot.user_id or bot == None:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    transactions = db.getTransactions(bot.id)
+    for entry in transactions:
+        entry.delet()
+    message = db.Message([0,bot.user_id,"INFO","Bot Deleted and Records Cleared"])
+    message.post()
+    bot.delete()
+    return redirect(url_for('home'))
+
+@app.route('/close')
+def close():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    return render_template('close.html')
+
+@app.route('/closeaccount')
+def closeAccount():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    user = db.getUsers(id=int(session["id"]))
+    valr.logPost(f'Closing account for {user.email}, id:{user.id}','1')
+    bots = db.getBots(user_id=user.id)
+    for bot in bots:
+        transactions = db.getTransactions(bot_id=bot.id)
+        for entry in transactions:
+            entry.delete()
+        accounts = db.getActiveAccounts(bot_id=bot.id)
+        for account in accounts:
+            account.delete()
+        if bot.active:
+            credit = db.Credit([0,user.id,bot.id,'',0,0,'PAUSE',int(time.time())])
+            credit.post()
+        bot.delete()
+    session["message"]="Account Closed"
+    session.pop('id', default=None)
+    return redirect(url_for('login'))
+
+@app.errorhandler(404)
+def pageNotFound(e):
+    return render_template('404.html'), 404
+
+if __name__ == "__main__": 
+    db.setupDB()
+    app.run(debug=True, port="5005", host="192.168.10.100")

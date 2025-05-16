@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Bot Setup</h2>
+    <div style="text-align: center;">
+        <form method="POST">
+            <table style="text-align: right; margin:auto;">
+                <tr>
+                    <td>{{ form.name.label }}: </td><td style="text-align: left;">{{ form.name }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.currency.label }}: </td><td style="text-align: left;">{{ form.currency }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.margin.label }}: </td><td style="text-align: left;">{{ form.margin }}%</td>
+                </tr>
+                <tr>
+                    <td>{{ form.refinedWeight.label }}: </td><td style="text-align: left;">{{ form.refinedWeight }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.dynamicMargin.label }}: </td><td style="text-align: left;">{{ form.dynamicMargin }}</td>
+                </tr>
+                <tr>
+                    <td>{{ form.active.label }}: </td><td style="text-align: left;">{{ form.active }}</td>
+                </tr>
+            </table>
+            {{ form.submit }}
+        </form><br>
+    </div>
+    <div class="button-container">
+        <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
+        <a class="button" href="{{ url_for('clear',id=id) }}">~ Clear Transactions ~</a>
+        <a class="button" href="{{ url_for('delete',id=id) }}">~ Delete Bot ~</a>
+
+    </div>
+</div>
+{% endblock %}

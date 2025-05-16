@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h3>Are you sure?</h3>
+    <p>Deleting the Bot: '{{ name }}' means removing all Transaction records and the API key assosiated.</p>
+    <p>The positions of your bots will be left as is, where you can sell via the VALR app.</p>
+    <p>Only the credits history will be kept as is for book keeping purposes.</p>
+    <div class="button-container">
+        <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
+        <a class="button" href="{{ url_for('deleteBot',id=id) }}" style="background-color:brown">~ Delete Bot ~</a>
+    </div>
+</div>
+{% endblock %}

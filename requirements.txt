@@ -1,0 +1,9 @@
+flask
+flask-wtf
+email_validator
+wtforms
+requests
+requests-ratelimiter
+python-dotenv
+schedule
+shortuuid
