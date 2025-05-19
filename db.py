@@ -18,7 +18,8 @@ def setupDB():
             "name":"TEXT NOT NULL",
             "email":"TEXT NOT NULL",
             "password":"TEXT NOT NULL",
-            "verified":"INTEGER DEFAULT 0"
+            "verified":"INTEGER DEFAULT 0",
+            "reminder":"TEXT DEFAULT '[] '"
             }},
         {"table_name":"bot_table",
         "table_columns":{
@@ -143,7 +144,20 @@ Classes for DB tables
 
 class User():
     """
-    New user data list=[id:0, name:{name}, email:{email}, password:{password}, verified:{ts}, reset:0]
+    New user data list=[id:0, name:{name}, email:{email}, password:{password}, verified:{ts}, reminder:[]]
+    Credit Reminder array:
+    [{
+        'code':1,
+        'ts':int(time.time()),
+        'description':'1 week credit reminder
+    }]
+    Reminder Codes:
+        1 - 0.25 Credits Remaining
+        2 - 0.1 Credits Remaining
+        3 - Credits has run out
+        4 - Out of credits 1 week
+        5 - 2 weeks inactivity
+        6 - 5 days not verified
     """
     def __init__(self,data):
         self.id = int(data[0])
@@ -151,19 +165,20 @@ class User():
         self.email = data[2]
         self.password = data[3]
         self.verified = bool(data[4])
+        self.reminder = json.loads(data[5])
 
     def post(self):
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            query = "INSERT INTO user_table(name, email, password, verified) VALUES(?, ?, ?, ?, )"
-            cursor.execute(query,[self.name, self.email, self.password, self.verified])
+            query = "INSERT INTO user_table(name, email, password, verified, reminder) VALUES(?, ?, ?, ?, ?)"
+            cursor.execute(query,[self.name, self.email, self.password, self.verified, json.dumps(self.reminder)])
             conn.commit()
             
     def update(self):
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            query = "UPDATE user_table SET name=?, email=?, password=?, verified=? WHERE id=?"
-            cursor.execute(query,[self.name, self.email, self.password, self.verified, self.id])
+            query = "UPDATE user_table SET name=?, email=?, password=?, verified=?, reminder=? WHERE id=?"
+            cursor.execute(query,[self.name, self.email, self.password, self.verified, json.dumps(self.reminder), self.id])
             conn.commit()
 
     def delete(self):

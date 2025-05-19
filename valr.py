@@ -166,7 +166,7 @@ class Config():
             self.USDT = USDTlist
             self.saveState()
         except Exception as e:
-            printLog(e, True)
+            logPost(f"During Update Tickers:{e}",'2')
    
     def updatePrice(self, session):
         url = "https://api.valr.com/v1/public/marketsummary"
@@ -206,7 +206,7 @@ class Config():
                 self.valrStatus = "suspended"
         except Exception as e:
             self.valrStatus = "suspended"
-            printLog(f"VALR server status: {e}", True)
+            logPost(f"VALR server status: {e}",'2')
 
     def saveState(self):
         with open(self.STATE_FILE, 'wb') as file:
@@ -409,10 +409,10 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
                     return details
                 time.sleep(1)
             except Exception as e:
-                printLog(f"During order check: {e}", True)
+                logPost(f"During order check: {e}",'2')
                 break
     except Exception as e:
-        printLog(f"During Trade: {e}", True)
+        logPost(f"During Trade: {e}",'2')
         return False
 
 
@@ -529,10 +529,17 @@ def logPost(snippet, code='2'):
     Code '2': Error
     Code '3': Emergency
     """
+    
+    currentTS = int(time.time())
+    date = datetime.datetime.fromtimestamp(currentTS)
+    dateFormat = "%d %b, %Y, %H:%M:%S"
+    printDate = date.strftime(dateFormat)
+    msg = f"{printDate} ~ {snippet}"
+
     payload = {
         "code": code,
         "app": "BooF",
-        "snippet": snippet
+        "snippet": msg
     }
     try:
         result = requests.post("https://www.bmd-studios.com/log", json=payload)
@@ -790,7 +797,7 @@ def checkBalances(config = Config, bot = db.Bot):
                 account.update()
 
     except Exception as e:
-        printLog(f"During checkBalances: {e}", True)
+        logPost(f"During checkBalances: {e}",'2')
                         
 def findEquity(config = Config, bot = db.Bot):
     """
@@ -1077,7 +1084,7 @@ def setStake(config = Config, bot = db.Bot):
                         account.stake += diff
                         account.update()
                     except Exception as e:
-                        printLog(f"During Staking: {e}", True)
+                        logPost(f"During Staking: {e}")
                 elif account.stake > account.volume*.8:
                     diff = trunc((account.stake - (account.volume*0.75)),decimal)
                     try:
@@ -1104,7 +1111,7 @@ def setStake(config = Config, bot = db.Bot):
                         response.raise_for_status()
                         account.stake -= diff
                     except Exception as e:
-                        printLog(f"During Staking: {e}", True)
+                        logPost(f"During Staking: {e}")
 
 def updateStake(key, secret, base):
     try:
@@ -1125,7 +1132,7 @@ def updateStake(key, secret, base):
         jsonResponse = response.json()
         return float(jsonResponse["amount"])
     except Exception as e:
-        printLog(f"During Stake Upadte: {e}", True)
+        logPost(f"During Stake Upadte: {e}",'2')
         return 0
 
 @bmd_logger
@@ -1172,7 +1179,8 @@ if __name__ == "__main__":
                     if config.valrStatus == "online":
                         schedule.run_pending()
                 except Exception as e:
-                    printLog("Error during main runtime", True)
+                    msg = f"Error during main runtime:\n<br>{e}"
+                    logPost(msg,'2')
                 time.sleep(1)
         except KeyboardInterrupt:
             printLog("Shutting down . . .", True)
