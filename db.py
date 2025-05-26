@@ -152,12 +152,14 @@ class User():
         'description':'1 week credit reminder
     }]
     Reminder Codes:
+        0 - New Unverified account
         1 - 0.25 Credits Remaining
         2 - 0.1 Credits Remaining
         3 - Credits has run out
         4 - Out of credits 1 week
         5 - 2 weeks inactivity
         6 - 5 days not verified
+        7 - No bots running
     """
     def __init__(self,data):
         self.id = int(data[0])

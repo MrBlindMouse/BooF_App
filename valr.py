@@ -34,8 +34,21 @@ def createSession(rate):
     return session
 
 def trunc(value,dec):
-    a = int(value*(10**dec))
-    return float(a/(10**dec))
+    if isinstance(value, str):
+        parts = value.split('.')
+        if len(parts) != 2:
+            raise ValueError("Invalid value format")
+        intPart, decPart = parts
+        if dec > 0:
+            decPart = decPart[:dec]
+            return ".".join([intPart,decPart])
+        else:
+            return intPart
+    elif isinstance(value, float):
+        a = int(value*(10**dec))
+        return float(a/(10**dec))
+    else:
+        return value
 
 def sorting(values):
     """
@@ -191,9 +204,9 @@ class Config():
                 
         for line in detailsResult:
             if line["currencyPair"] == "USDCZAR":
-                self.USDCZAR = line["markPrice"]
+                self.USDCZAR = float(line["markPrice"])
             if line["currencyPair"] == "USDTZAR":
-                self.USDTZAR = line["markPrice"]
+                self.USDTZAR = float(line["markPrice"])
 
 
     def checkVALR(self, session):
@@ -297,10 +310,12 @@ def updateCurrency(newCurrency, bot=db.Bot):
                 break
         result = trade("SELL",account.base,bot.currency,bot.key,bot.secret,account.volume,decimal)
         if result:
-            transaction = db.Transaction(0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time()))
+            transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
             transaction.post()
         account.delete()
     bot.currency = newCurrency
+    bot.balance_nr = 0
+    bot.balance_value = 0
     bot.update()
 
 def trade(direction, quote, base, key, secret, amount, decimal=2):
@@ -312,18 +327,19 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
     try:
         payload = {}
         if direction == "BUY":
+            quoteAmount = f"{float(amount):.{decimal+1}f}"
             payload = {
                 "side": "BUY",
-                "quoteAmount": f"{amount:.{decimal}f}",
+                "quoteAmount": trunc(quoteAmount,decimal),
                 "pair": f"{base}{quote}"
             }
         elif direction == "SELL":
+            baseAmount = f"{float(amount):.{decimal+1}f}"
             payload = {
                 "side": "SELL",
-                "baseAmount": f"{amount:.{decimal}f}",
+                "baseAmount": trunc(baseAmount,decimal),
                 "pair": f"{base}{quote}"
             }
-
         ts = int(time.time()*1000)
         verb = "POST"
         path = "/v2/orders/market"
@@ -338,13 +354,14 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
         response = externalSession.post(url=url, headers=headers, json=payload)
         jsonResponse = response.json()
         if response.status_code != 201:
-            printLog(json.dumps(jsonResponse, indent=4))
+            printLog(f"Error posting order: {json.dumps(jsonResponse, indent=4)}", True)
             print(json.dumps(payload))
             raise ValueError(jsonResponse["message"])
         id = jsonResponse["id"]
         
         loop = 0
         while True:
+            details = None
             try:
                 loop+=1
                 if loop > 5: #If order cannot be filled in 5 secs, cancel
@@ -410,10 +427,10 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
                 time.sleep(1)
             except Exception as e:
                 logPost(f"During order check: {e}",'2')
-                break
+                return details
     except Exception as e:
         logPost(f"During Trade: {e}",'2')
-        return False
+        return None
 
 
 def trend(session, pair):
@@ -678,114 +695,183 @@ def checkBalances(config = Config, bot = db.Bot):
     Checks balances against active accounts, sells if balance is not found and updates account if found
     """
     try:
-        ts = int(time.time())*1000
-        accounts = db.getActiveAccounts(bot_id=bot.id)
-        verb = "GET"
-        path = "/v1/account/balances"
-        body = "?excludeZeroBalances=true"
-        url=f"https://api.valr.com{path}{body}"
-        sign = getSign(bot.secret,ts,verb,path,body)
-        payload = {}
-        headers = {
-            'X-VALR-API-KEY': bot.key,
-            'X-VALR-SIGNATURE': str(sign),
-            'X-VALR-TIMESTAMP': str(ts),
-        }
-        response = externalSession.get(url, headers=headers, data=payload)
-        if response.status_code != 200:
-            raise ValueError(response.json()["message"])
-        jsonResponse = response.json()
+        printLog("Check Balances")
 
         accounts = db.getActiveAccounts(bot_id=bot.id)
+        jsonResponse = None
+        repeat = True
         
-        for entry in jsonResponse:
-            if entry["currency"] == bot.currency:
-                if float(entry["available"]) != bot.quote_balance:
-                    bot.quote_balance = float(entry["available"])
-                    bot.update()
-                found = True
-            else:
+        while repeat:
+            ts = int(time.time())*1000
+            verb = "GET"
+            path = "/v1/account/balances"
+            body = "?excludeZeroBalances=true"
+            url=f"https://api.valr.com{path}{body}"
+            sign = getSign(bot.secret,ts,verb,path,body)
+            payload = {}
+            headers = {
+                'X-VALR-API-KEY': bot.key,
+                'X-VALR-SIGNATURE': str(sign),
+                'X-VALR-TIMESTAMP': str(ts),
+            }
+            response = externalSession.get(url, headers=headers, data=payload)
+            if response.status_code != 200:
+                raise ValueError(response.json()["message"])
+            jsonResponse = response.json()
+
+            repeat = False
+
+            for entry in jsonResponse:
                 found = False
+                if entry["currency"] == bot.currency: #Check for bot currency
+                    found = True
+                    if float(entry["available"]) != bot.quote_balance:
+                        bot.quote_balance = float(entry["available"])
+                        bot.update()
 
-            if not found: #Check Accounts
-                for account in accounts:
-                    if account.base == entry["currency"]:
-                        found = True
-                        if account.volume != (float(entry["available"])+account.stake):
-                            if account.base in config.stake:
-                                account.stake = updateStake(bot.key, bot.secret, account.base)
-                            account.volume = float(entry["available"])+account.stake
-                            account.update()
-                        break
+                
 
-            if not found and entry["currency"] in ["ZAR","USDC","USDT"]: #Quote Currencies
-                if bot.currency == "ZAR":
-                    if entry["currency"] == "ZAR":
-                        found = True
-                    elif entry["currency"] == "USDC":
-                        found = True
-                        if float(entry["total"]) > 1: #Min base amount
-                            printLog("Selling USDC for ZAR", True)
-                            trade("SELL", "ZAR", "USDC", bot.key, bot.secret, float(entry["available"]))
-                        pass
-                    elif entry["currency"] == "USDT":
-                        found = True
-                        if float(entry["total"]) > 1: #Min base amount
-                            printLog("Selling USDT for ZAR", True)
-                            trade("SELL", "ZAR", "USDT", bot.key, bot.secret, float(entry["available"]))
-                elif bot.currency == "USDC":
-                    if entry["currency"] == "USDC":
-                        found = True
-                    elif entry["currency"] == "ZAR":
-                        found = True
-                        if float(entry["total"]) > 10: #Min quote amount
-                            printLog("Buying USDC with ZAR", True)
-                            trade("BUY", "ZAR", "USDC", bot.key, bot.secret, float(entry["available"]))
-                    elif entry["currency"] == "USDT":
-                        found = True
-                        if float(entry["total"]) > 1: #Min base amount
-                            printLog("Selling USDT for ZAR", True)
-                            trade("BUY", "USDT", "USDC", bot.key, bot.secret, float(entry["available"]))
-                elif bot.currency == "USDT":
-                    if entry["currency"] == "USDT":
-                        found = True
-                    elif entry["currency"] == "USDC":
-                        found = True
-                        if float(entry["total"]) > 1: #Min quote amount
-                            printLog("Selling USDC for USDT", True)
-                            trade("SELL", "USDT", "USDC", bot.key, bot.secret, float(entry["available"]))
-                    elif entry["currency"] == "ZAR":
-                        found = True
-                        if float(entry["total"]) > 10: #Min quote amount
-                            printLog("Selling USDT for ZAR", True)
-                            trade("BUY", "ZAR", "USDT", bot.key, bot.secret, float(entry["available"]))
+                if not found: #Check Accounts
+                    for account in accounts:
+                        if account.base == entry["currency"]:
+                            found = True
+                            if account.volume != (float(entry["available"])+account.stake):
+                                if account.base in config.stake:
+                                    account.stake = updateStake(bot.key, bot.secret, account.base)
+                                account.volume = float(entry["available"])+account.stake
+                                account.update()
+                            break
+                
+
+                if not found and entry["currency"] in ["ZAR","USDC","USDT"]: #Quote Currencies
+                    if bot.currency == "ZAR":
+                        if entry["currency"] == "ZAR":
+                            found = True
+                        elif entry["currency"] == "USDC":
+                            found = True
+                            if float(entry["total"]) > 1: #Min base amount
+                                printLog("Selling USDC for ZAR", True)
+                                result = trade("SELL", "ZAR", "USDC", bot.key, bot.secret, entry["available"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                        elif entry["currency"] == "USDT":
+                            found = True
+                            if float(entry["total"]) > 1: #Min base amount
+                                printLog("Selling USDT for ZAR", True)
+                                result = trade("SELL", "ZAR", "USDT", bot.key, bot.secret, entry["available"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                    elif bot.currency == "USDC":
+                        if entry["currency"] == "USDC":
+                            found = True
+                        elif entry["currency"] == "ZAR":
+                            found = True
+                            if float(entry["total"]) > 10: #Min quote amount
+                                printLog("Buying USDC with ZAR", True)
+                                result = trade("BUY", "ZAR", "USDC", bot.key, bot.secret, entry["available"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                        elif entry["currency"] == "USDT":
+                            found = True
+                            if float(entry["total"]) > 1: #Min base amount
+                                printLog("Selling USDT for USDC", True)
+                                result = trade("SELL", "USDC", "USDT", bot.key, bot.secret, entry["available"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                    elif bot.currency == "USDT":
+                        if entry["currency"] == "USDT":
+                            found = True
+                        elif entry["currency"] == "USDC":
+                            found = True
+                            if float(entry["total"]) > 1: #Min quote amount
+                                printLog("Buying USDT with USDC", True)
+                                result = trade("BUY", "USDC", "USDT", bot.key, bot.secret, entry["available"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                        elif entry["currency"] == "ZAR":
+                            found = True
+                            if float(entry["total"]) > 10: #Min quote amount
+                                printLog("Buying USDT with ZAR", True)
+                                result = trade("BUY", "ZAR", "USDT", bot.key, bot.secret, entry["available"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
 
 
-            if not found: #Sell for ZAR tickers
-                for ticker in config.ZAR:
-                    if ticker["base"] == entry["currency"]:
-                        found = True
-                        if float(entry["total"])*float(ticker["price"]) > ticker["minTrade"]:
-                            printLog(f"Selling {entry["currency"]} for ZAR", True)
-                            trade("SELL", "ZAR", entry["currency"], bot.key, bot.secret, float(entry["available"]))
-                        
-                            
-            if not found: #Sell for USDC tickers
-                for ticker in config.USDC:
-                    if ticker["base"] == entry["currency"]:
-                        found = True
-                        if float(entry["total"])*ticker["price"] > float(ticker["minTrade"]):
-                            printLog(f"Selling {entry["currency"]} for USDC", True)
-                            trade("SELL", "USDC", entry["currency"], bot.key, bot.secret, float(entry["available"]))
-                            
-        
-            if not found: #SELL for USDT tickers
-                for ticker in config.USDT:
-                    if ticker["base"] == entry["currency"]:
-                        found = True
-                        if float(entry["total"])*float(ticker["price"]) > float(ticker["minTrade"]):
-                            printLog(f"Selling {entry["currency"]} for USDT", True)
-                            trade("SELL", "USDT", entry["currency"], bot.key, bot.secret, float(entry["available"]), int(ticker['decimal']))
+                if not found and entry["currency"] in config.stake:
+                    stake = updateStake(bot.key, bot.secret, entry["currency"])
+                    if stake != 0:
+                        try:
+                            ts = int(time.time()*1000)
+                            payload = {}
+                            verb = "POST"
+                            path = "/v1/staking/un-stake"
+                            body = {
+                                "currencySymbol":entry["currency"],
+                                "amount":f"{stake}"
+                            }
+                            url=f"https://api.valr.com{path}"
+                            sign = getSign(bot.secret,ts,verb,path,json.dumps(body))
+                            headers = {
+                                'Content-Type': 'application/json',
+                                'X-VALR-API-KEY': bot.key,
+                                'X-VALR-SIGNATURE': str(sign),
+                                'X-VALR-TIMESTAMP': str(ts),
+                            }
+                            response = externalSession.post(url, headers=headers, json=body)
+                            if response.status_code != 202:
+                                msg = f"Error during closing stake: \n<br>{response.reason}<br>{response.content}"
+                                logPost(msg, '2')
+                        except Exception as e:
+                            logPost(f"Error during closing stake: {e}")
+
+
+                if not found: #Sell for ZAR tickers
+                    for ticker in config.ZAR:
+                        if ticker["base"] == entry["currency"]:
+                            found = True
+                            if float(entry["total"])*float(ticker["price"]) > ticker["minTrade"]:
+                                repeat = True
+                                printLog(f"Selling {entry["currency"]} for ZAR", True)
+                                result = trade("SELL", "ZAR", entry["currency"], bot.key, bot.secret, entry["available"], ticker["decimal"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                            break
+                
+                                
+                if not found: #Sell for USDC tickers
+                    for ticker in config.USDC:
+                        if ticker["base"] == entry["currency"]:
+                            found = True
+                            if float(entry["total"])*ticker["price"] > float(ticker["minTrade"]):
+                                repeat = True
+                                printLog(f"Selling {entry["currency"]} for USDC", True)
+                                result = trade("SELL", "USDC", entry["currency"], bot.key, bot.secret, entry["available"], ticker["decimal"])
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                            break
+                    
+            
+                if not found: #SELL for USDT tickers
+                    for ticker in config.USDT:
+                        if ticker["base"] == entry["currency"]:
+                            found = True
+                            if float(entry["total"])*float(ticker["price"]) > float(ticker["minTrade"]):
+                                repeat = True
+                                printLog(f"Selling {entry["currency"]} for USDT", True)
+                                result = trade("SELL", "USDT", entry["currency"], bot.key, bot.secret, entry["available"], int(ticker['decimal']))
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction.post()
+                            break
+
 
         for account in accounts:
             found = False
@@ -838,12 +924,12 @@ def findBalance(config = Config, bot = db.Bot):
                 bot.margin = 0.15
                 bot.active = False
                 bot.update()
-                message = db.Message(0, bot.user_id, "ERROR", "Insufficient equity, pausing bot.")
+                message = db.Message([0, bot.user_id, "ERROR", "Insufficient equity, pausing bot."])
                 message.post()
                 break
             else:
                 bot.update()
-                message = db.Message(0, bot.user_id, "WARNING", f"Insufficient equity, increasing margin({(bot.margin*100):0f}) to maintain normal operations.")
+                message = db.Message([0, bot.user_id, "WARNING", f"Insufficient equity, increasing margin({(bot.margin*100):0f}) to maintain normal operations."])
                 message.post()
         elif bot.equity < equityLow:    #Bot equity low
             balance_nr -= 1
@@ -884,21 +970,21 @@ def setAccounts(config = Config, bot = db.Bot):
         accountNrs = len(accounts)
         difference = accountNrs - bot.balance_nr
 
-        for i in range(difference):
-            account = accounts[accountNrs-i-1]
-            ticker = None
-            for entry in currencyList:
-                if entry["base"] == account.base:
-                    ticker = entry
+        for entry in reversed(currencyList):
+            for account in accoutns:
+                if account.base == entry["base"]:
+                    result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, account.volume, entry["decimal"])
+                    if result:
+                        transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                        transaction.post()
+                        bot.equity += result["value"]
+                        bot.update()
+                    account.delete()
+                    difference -= 1
                     break
-            printLog(f"Selling {account.base} for {bot.currency} to close account", True)
-            result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, account.volume, ticker["decimal"])
-            if result:
-                transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
-                transaction.post()
-                bot.equity += result["value"]
-                bot.update()
-            account.delete()
+            if difference <= 0:
+                break
+
 
     elif len(accounts) < bot.balance_nr:    #Open new account, relative to config.'TICKERS' order
         currencyList = []
@@ -921,15 +1007,21 @@ def setAccounts(config = Config, bot = db.Bot):
                 printLog(f"Buying {newAccount["base"]} with {bot.currency} to open account", True)
                 result = trade("BUY", bot.currency, newAccount["base"], bot.key, bot.secret, bot.balance_value)
                 if result:
-                    transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],newAccount["base"],bot.currency,int(time.time())])
                     transaction.post()
                     bot.equity -= result["value"]
                     bot.update()
                     account = db.ActiveAccount([0, bot.id, newAccount["base"], result["volume"], 0, "", 0])
                     account.post()
+                    accounts.append(account)
+                    printLog(f"{account.base} account opened with transaction")
                 else:
                     account = db.ActiveAccount([0, bot.id, newAccount["base"], 0, 0, "", 0])
                     account.post()
+                    accounts.append(account)
+                    printLog(f"{account.base} account opened")
+                difference -= 1
+            if difference <= 0:
                 break
                       
 def balanceBots(config = Config, bot = db.Bot):
@@ -1069,7 +1161,7 @@ def setStake(config = Config, bot = db.Bot):
                         path = "/v1/staking/stake"
                         body = {
                             "currencySymbol":account.base,
-                            "amount":f"{diff:.{decimal}f}"
+                            "amount": trunc(f"{diff:.{decimal+1}f}",decimal)
                         }
                         url=f"https://api.valr.com{path}"
                         sign = getSign(bot.secret,ts,verb,path,json.dumps(body))
@@ -1094,7 +1186,7 @@ def setStake(config = Config, bot = db.Bot):
                         path = "/v1/staking/un-stake"
                         body = {
                             "currencySymbol":account.base,
-                            "amount":f"{diff:.{decimal}f}"
+                            "amount":trunc(f"{diff:.{decimal+1}f}", decimal)
                         }
                         url=f"https://api.valr.com{path}"
                         sign = getSign(bot.secret,ts,verb,path,json.dumps(body))
@@ -1134,6 +1226,7 @@ def updateStake(key, secret, base):
     except Exception as e:
         logPost(f"During Stake Upadte: {e}",'2')
         return 0
+
 
 @bmd_logger
 def loop(session, config=Config):

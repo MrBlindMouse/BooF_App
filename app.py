@@ -40,7 +40,7 @@ class signupForm(FlaskForm):
 def profileForm(user):
     class Form(FlaskForm):
         name = StringField("Username", validators=[DataRequired(),Length(min=3, max=20, message="Username must be 3-20 characters long")], default=user.name)
-        oldPassword = PasswordField("Previous Password")
+        oldPassword = PasswordField("Previous Password", default=user.password)
         password = PasswordField("New Password", validators=[Length(min=8, message="Password must be at least 8 characters")])
         confirm_password = PasswordField('Confirm New Password', validators=[EqualTo('password', message="Passwords must match")])
         submit = SubmitField('Update')
@@ -79,6 +79,8 @@ class createResetForm(FlaskForm):
 def trunc(value,dec):
     a = int(value*(10**dec))
     return float(a/(10**dec))
+
+#Emails
 
 def userVerificationEmail(user = db.User):
     config = valr.Config()
@@ -167,6 +169,59 @@ def passwordResetEmail(user=db.User):
         """
     htmlBody = render_template('emailBase.html', message=body)
     postmark.sendMail(config.postmarkKey, htmlBody, "Password Reset Request", recipient=user.email)
+
+def creditsRemainingEmail(code, user=db.User):
+    config = valr.Config()
+    config.loadState()
+
+    body = ''
+    if code == 1:
+        body = f"""
+            <p style='color:black;'>Hi {user.name},</p><br>
+            <p style='color:black;'>This is just a reminder, you have 0.25 credits remaining.</p>
+            <p style='color:black;'>If your credits run out all active bots will be paused.</p>
+            <p style='color:black;'>Best wishes,</p>
+            <p style='color:black;'>&emsp;The BooF Team</p>
+        """
+
+    elif code == 2:
+        pass
+    elif code == 3:
+        pass
+    elif code == 4:
+        pass
+
+    
+    htmlBody = render_template('emailBase.html', message=body)
+    postmark.sendMail(config.postmarkKey, htmlBody, "Account Warning", recipient=user.email)
+
+def feedbackEmail(user=db.User):
+    config = valr.Config()
+    config.loadState()
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>Its been 2 weeks since a bot has been active, is everything ok?</p><br>
+        <p style='color:black;'>If you have any feedback to make the BooF bots better, please click here</p><br>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    htmlBody = render_template('emailBase.html', message=body)
+    postmark.sendMail(config.postmarkKey, htmlBody, "Account Warning", recipient=user.email)
+
+def unVerifiedEmail(user=db.User):
+    config = valr.Config()
+    config.loadState()
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>This is a reminder that your BooF account has not been verified.</p>
+        <p style='color:black;'>To verify your account, login; and under 'Profile' request a verification email. Then follow the instructions once your receive the email.</p><br>
+        <p style='color:black;'>If you do not verify within the next 2 days, your account it will be deleted.</p><br><br>
+        <p style='color:black;'>Hope all goes well,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    htmlBody = render_template('emailBase.html', message=body)
+    postmark.sendMail(config.postmarkKey, htmlBody, "Account Warning", recipient=user.email)
 
 
 #Routes
@@ -492,7 +547,7 @@ def botconfig(id):
         return redirect(url_for('login'))
     bot = db.getBots(id=id)
     form = botConfigForm(bot)
-    if form.validate_on_submit():
+    if request.method=="POST":
         name = form.name.data
         currency = form.currency.data
         margin = int(form.margin.data)/100
@@ -510,6 +565,7 @@ def botconfig(id):
             bot.refined_weight = refinedWeight
             bot.dynamic_margin = dynamicMargin
             session["message"] = "Bot Config updated!"
+            bot.update()
         if active != bot.active:
             bot.active = active
             bot.update()

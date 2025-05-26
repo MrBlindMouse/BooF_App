@@ -27,6 +27,9 @@
             {{ form.submit }}
         </form><br>
     </div>
+    <p><b>Note:</b></p>
+    <p>Changing the bot's currency will sell every position before buying the relevant positions for the new currency.</p>
+    <p>The bot calculates the maximum positions viable based on the minimum trade values, margin and total equity of the bot. Changing the margin may force the bot to open or close a new postion, affection the buy and sell pattern previously established, and may cause bad trades for a period of time.</p>
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
         <a class="button" href="{{ url_for('clear',id=id) }}">~ Clear Transactions ~</a>
