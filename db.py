@@ -36,7 +36,8 @@ def setupDB():
             "balance_value":"FLOAT NOT NULL",
             "margin":"FLOAT DEFAULT 0.01",
             "dynamic_margin":"BOOL DEFAULT FALSE",
-            "refined_weight":"BOOL DEFAULT FALSE"
+            "refined_weight":"BOOL DEFAULT FALSE",
+            "downturn_protection":"BOOL DEFAULT FALSE"
             }},
         {"table_name":"active_account_table",
         "table_columns":{
@@ -82,9 +83,18 @@ def setupDB():
             "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
             "token":"TEXT NOT NULL DEFAULT 'blob'",
             "ts":"INTEGER NOT NULL DEFAULT 0",
-            "user_id":"INTEGER NOT NULL DEFAULT 0",
+            "user_id":"INTEGER DEFAULT 0",
             "type":"TEXT NOT NULL DEFAULT 'VERIFY'",
-            "period":"INTEGER NOT NULL DEFAULT 24"
+            "period":"FLOAT NOT NULL DEFAULT 24"
+        }},
+        {"table_name":"plan_table",
+        "table_columns":{
+            "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
+            
+        }},
+        {"table_name":"subscription_table",
+        "table_columns":{
+            "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
         }}
             ]
     
@@ -169,6 +179,15 @@ class User():
         self.verified = bool(data[4])
         self.reminder = json.loads(data[5])
 
+    def __repr__(self):
+        return f"""Name: {self.name}
+ID: {self.id}
+Email: {self.email}
+Verified: {self.verified}
+Reminders: ~
+{json.dumps(self.reminder, indent=4)}
+"""
+
     def post(self):
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -184,6 +203,19 @@ class User():
             conn.commit()
 
     def delete(self):
+        bots = getBots(user_id=self.id)
+        if bots:
+            for bot in bots:
+                bot.delete()
+        credits = returnCredits(user_id=self.id)
+        if credits:
+            for credit in credits:
+                credit.delete()
+        messages = getMessages(user_id=self.id)
+        if messages:
+            for message in messages:
+                message.delete()
+
         with sqlite3.connect(db_path) as connection:
             query = "DELETE FROM user_table WHERE id=?"
             data = [self.id]
@@ -242,6 +274,7 @@ class Bot:
         self.dynamic_margin = bool(data[11])
         self.refined_weight = bool(data[12])
         self.quote_balance = float(data[13])
+        self.downturn_protection = bool(data[14])
         
     def __repr__(self):
         repr = f"""
@@ -259,24 +292,37 @@ class Bot:
         {self.margin}
         {self.dynamic_margin}
         {self.refined_weight}
+        {self.downturn_protection}
         """
         return repr
 
     def post(self):
+        "Creates a new db entry, only call this to create a new bot"
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            query = "INSERT INTO bot_table(user_id, name, key, secret, currency, active, equity, quote_balance balance_nr, balance_value, margin, dynamic_margin, refined_weight) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            cursor.execute(query,[self.user_id, self.name, self.key, self.secret, self.currency, self.active, self.equity, self.quote_balance, self.balance_nr, self.balance_value, self.margin, self.dynamic_margin, self.refined_weight])
+            query = "INSERT INTO bot_table(user_id, name, key, secret, currency, active, equity, quote_balance balance_nr, balance_value, margin, dynamic_margin, refined_weight, downturn_protection) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            cursor.execute(query,[self.user_id, self.name, self.key, self.secret, self.currency, self.active, self.equity, self.quote_balance, self.balance_nr, self.balance_value, self.margin, self.dynamic_margin, self.refined_weight, self.downturn_protection])
             conn.commit()
             
     def update(self):
+        "Updates an existing bot's db entry"
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            query = "UPDATE bot_table SET name=?, key=?, secret=?, currency=?, active=?, equity=?, quote_balance=?, balance_nr=?, balance_value=?, margin=?, dynamic_margin=?, refined_weight=? WHERE id=?"
-            cursor.execute(query,[self.name, self.key, self.secret, self.currency, self.active, self.equity, self.quote_balance, self.balance_nr, self.balance_value, self.margin, self.dynamic_margin, self.refined_weight, self.id])
+            query = "UPDATE bot_table SET name=?, key=?, secret=?, currency=?, active=?, equity=?, quote_balance=?, balance_nr=?, balance_value=?, margin=?, dynamic_margin=?, refined_weight=?, downturn_protection=? WHERE id=?"
+            cursor.execute(query,[self.name, self.key, self.secret, self.currency, self.active, self.equity, self.quote_balance, self.balance_nr, self.balance_value, self.margin, self.dynamic_margin, self.refined_weight, self.downturn_protection, self.id])
             conn.commit()
             
     def delete(self):
+        "Removes a bot's db entry, including all active accounts and transaction records."
+        accounts = getActiveAccounts(bot_id=self.id)
+        if account:
+            for account in accounts:
+                account.delete()
+        transactions = getTransactions(bot_id=self.id)
+        if transactions:
+            for transaction in transactions:
+                transaction.delete()
+
         with sqlite3.connect(db_path) as connection:
             query = "DELETE FROM bot_table WHERE id=?"
             data = [self.id]
@@ -288,8 +334,8 @@ class Bot:
         if not self.active:
             self.active = True
             self.update()
-            stopEntry = Credit([0, self.user_id, self.id, "", 0, 0, "START", time.time()])
-            stopEntry.post()
+            startEntry = Credit([0, self.user_id, self.id, "", 0, 0, "START", time.time()])
+            startEntry.post()
 
     def stop(self):
         if self.active:
@@ -543,7 +589,8 @@ def getCredits(user_id=None, bot_id=None):
         remaining_credit = (cred_time - run_time)/creditPeriod
         details={
             "credit":remaining_credit,
-            "time":remaining_time
+            "time":remaining_time,
+            'active':active_timer,
         }
         return details
     else:
@@ -562,6 +609,16 @@ def getCredits(user_id=None, bot_id=None):
             "time":run_time
         }
         return details
+
+def returnCredits(user_id):
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        data = cursor.execute("SELECT * FROM credit_table WHERE user_id = ?", [user_id]).fetchall()
+        if data:
+            credits = []
+            for entry in data:
+                credits.append(Credit(entry))
+            return credits
 
 
 class Message:
@@ -608,7 +665,7 @@ class Token():
     """
     New message data list=[id:0, token:{token}, ts:int(time.time()), user_id:{user_id}, type:{type}, period:{period}]
     Token - Encoded token
-    Types ["VERIFY","RESET"]
+    Types ["VERIFY","RESET","PAYPAL]
     Period - Lifetime of token in hrs
     """
     def __init__(self,data):
@@ -617,7 +674,15 @@ class Token():
         self.ts = int(data[2])
         self.user_id = int(data[3])
         self.type = data[4]
-        self.period = int(data[5])
+        self.period = float(data[5])
+
+    def __repr__(self):
+        return f"""Type: {self.type}
+Token: {self.token}
+Period: {self.period}
+TS: {self.ts}
+User: {self.user_id}
+"""
 
     def post(self):
         with sqlite3.connect(db_path) as conn:
@@ -634,11 +699,39 @@ class Token():
             cursor.execute(query,data)
             connection.commit()
 
-def getToken(token):
-    dbToken = None
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        data = cursor.execute("SELECT * FROM token_table WHERE token = ?", [token]).fetchone()
-        if data:
-            dbToken = Token(data)
-    return dbToken
+def getTokens(token=None, type=None):
+    "Returns token entry, by type, or list of tokens if none are supplied"
+    if type:
+        if type == "PAYPAL":
+            print("Fetching paypal token . . .")
+            dbToken = None
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                data = cursor.execute("SELECT * FROM token_table WHERE type = ?", [type]).fetchone()
+                if data:
+                    dbToken = Token(data)
+            return dbToken
+        else:
+            dbToken = []
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                data = cursor.execute("SELECT * FROM token_table WHERE type = ?", [type]).fetchall()
+                for entry in data:
+                    dbToken.append(Token(entry))
+            return dbToken
+    elif token:
+        dbToken = None
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            data = cursor.execute("SELECT * FROM token_table WHERE token = ?", [token]).fetchone()
+            if data:
+                dbToken = Token(data)
+        return dbToken
+    else:
+        dbTokens = []
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            data = cursor.execute("SELECT * FROM token_table").fetchall()
+            for entry in data:
+                dbTokens.append(Token(entry))
+        return dbTokens

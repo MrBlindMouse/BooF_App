@@ -7,7 +7,7 @@ from dotenv import dotenv_values
 import schedule
 import datetime, json, pickle, os, sys, traceback, time, datetime, math
 
-import db
+import db, postmark
 
 """
 Initialise Config and define createSession first.
@@ -60,7 +60,7 @@ class Config():
     """
     updateEnv() and checkVALR to be run every loop,
     updateTickers() to be run daily,
-    updateVotality() to be ru weekly
+    updatevolatility() to be ru weekly
     """
     STATE_FILE = "config_state.pkl"
     def __init__(self):
@@ -73,9 +73,7 @@ class Config():
         self.USDTZAR = 0
         self.forbidden = []
         self.stake = []
-        self.isupTS = 0
         self.postmarkKey = ""
-        self.verifySalt = ""
 
     def updateEnv(self):
         """
@@ -86,11 +84,13 @@ class Config():
         self.forbidden = eval(config["FORBIDDEN"])
         self.stake = eval(config["STAKE"])
         self.postmarkKey = config["POSTMARK_KEY"]
-        self.verifySalt = config["VERIFY_SALT"]
+        self.paypalKey = config["PAYPAL_ID"]
+        self.paypalSecret = config["PAYPAL_SECRET"]
     
     def updateTickers(self, session):
         """
         Updates the ticker list, including ticker trend, per quote currency.
+        Checks downturn protection rules.
         Ticker format={
             "base": {baseCurrency},
             "price": {markPrice},
@@ -98,10 +98,11 @@ class Config():
             "minTrade": {minValue},
             "trend": {trend},
             "rsi": {rsi}
-            "votality": {beta}
+            "volatility": {beta},
+            "atr": {atr%}
         }
         """
-        printLog("Updating tickers . . .")
+        printLog("Updating tickers . . .", True)
         try:
             ZARlist = []
             ZARBars = []
@@ -124,7 +125,8 @@ class Config():
                         if entry["symbol"] == line["currencyPair"]:
                             details = entry
                             break
-                if details and not any(forbidden in details["baseCurrency"] for forbidden in self.forbidden) and details["currencyPairType"] == "SPOT":
+
+                if details and not any(forbidden in details["baseCurrency"] for forbidden in self.forbidden) and details["currencyPairType"] == "SPOT" and details["quoteCurrency"] in ["ZAR","USDC","USDT"]:
                     summaryULR = f"https://api.valr.com/v1/public/{details["symbol"]}/marketsummary"
                     summaryResult = session.get(summaryULR).json()
                     tickerDetails = {}
@@ -139,7 +141,7 @@ class Config():
                         minValue = float(summaryResult["markPrice"])*float(details["minBaseAmount"])
                         if minValue < float(details["minQuoteAmount"]):
                             minValue = float(details["minQuoteAmount"])
-                        tickerTrend = trend(session,details["symbol"])
+                        tickerTrend = findTrend(session,details["symbol"])
                         tickerDetails = {
                             "base": details["baseCurrency"],
                             "price": float(summaryResult["markPrice"]),
@@ -147,7 +149,8 @@ class Config():
                             "minTrade": minValue,
                             "trend": tickerTrend["trend"],
                             "rsi": tickerTrend["rsi"],
-                            "votality": 1
+                            "volatility": 1,
+                            "atr": tickerTrend["atr"]
                         }
                         tickerBars["bars"] = tickerTrend["bars"]
                     if details["quoteCurrency"] == "ZAR":
@@ -159,28 +162,31 @@ class Config():
                     elif details["quoteCurrency"] == "USDC":
                         USDClist.append(tickerDetails)
                         USDCBars.append(tickerBars)
-                else:
-                    if details:
-                        printLog(f"{details["symbol"]} not allowed", True)
-                        
+
+
             for key, value in enumerate(ZARlist):
-                ZARlist[key]["votality"] = beta(session, value["base"], "ZAR", ZARBars)
+                ZARlist[key]["volatility"] = beta(session, value["base"], "ZAR", ZARBars)
             ZARlist.sort(key=sorting)
             self.ZAR = ZARlist
                     
             for key, value in enumerate(USDClist):
-                USDClist[key]["votality"] = beta(session, value["base"], "USDC", USDCBars)
+                USDClist[key]["volatility"] = beta(session, value["base"], "USDC", USDCBars)
             USDClist.sort(key=sorting)
             self.USDC = USDClist
                     
             for key, value in enumerate(USDTlist):
-                USDTlist[key]["votality"] = beta(session, value["base"], "USDT", USDTBars)
+                USDTlist[key]["volatility"] = beta(session, value["base"], "USDT", USDTBars)
             USDTlist.sort(key=sorting)
             self.USDT = USDTlist
             self.saveState()
         except Exception as e:
+            printLog(e,True)
             logPost(f"During Update Tickers:{e}",'2')
-   
+
+
+
+                
+                
     def updatePrice(self, session):
         url = "https://api.valr.com/v1/public/marketsummary"
         detailsResult = session.get(url).json()
@@ -208,7 +214,6 @@ class Config():
             if line["currencyPair"] == "USDTZAR":
                 self.USDTZAR = float(line["markPrice"])
 
-
     def checkVALR(self, session):
         url = 'https://api.valr.com/v1/public/status'
         try:
@@ -233,9 +238,9 @@ class Config():
                 "USDTZAR":self.USDTZAR,
                 "forbidden":self.forbidden,
                 "stake":self.stake,
-                "isupTS":self.isupTS,
                 "postmarkKey":self.postmarkKey,
-                "verifySalt":self.verifySalt
+                "paypalKey":self.paypalKey,
+                "paypalSecret":self.paypalSecret
 
             }, file)
 
@@ -252,9 +257,9 @@ class Config():
                 self.USDTZAR = state["USDTZAR"]
                 self.forbidden = state["forbidden"]
                 self.stake = state["stake"]
-                self.isupTS = state["isupTS"]
                 self.postmarkKey = state["postmarkKey"]
-                self.verifySalt = state["verifySalt"]
+                self.paypalKey = state["paypalKey"]
+                self.paypalSecret = state["paypalSecret"]
         else:
             printLog("State file not found", True)
             raise
@@ -326,20 +331,20 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
     """
     try:
         payload = {}
+        stringAmount = f"{float(trunc(amount,decimal)):.{decimal}f}" #Scientific suppressed string from truncated amount
         if direction == "BUY":
-            quoteAmount = f"{float(amount):.{decimal+1}f}"
             payload = {
                 "side": "BUY",
-                "quoteAmount": trunc(quoteAmount,decimal),
+                "quoteAmount": stringAmount,
                 "pair": f"{base}{quote}"
             }
         elif direction == "SELL":
-            baseAmount = f"{float(amount):.{decimal+1}f}"
             payload = {
                 "side": "SELL",
-                "baseAmount": trunc(baseAmount,decimal),
+                "baseAmount": stringAmount,
                 "pair": f"{base}{quote}"
             }
+        printLog(json.dumps(payload, indent=4), True)
         ts = int(time.time()*1000)
         verb = "POST"
         path = "/v2/orders/market"
@@ -354,8 +359,6 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
         response = externalSession.post(url=url, headers=headers, json=payload)
         jsonResponse = response.json()
         if response.status_code != 201:
-            printLog(f"Error posting order: {json.dumps(jsonResponse, indent=4)}", True)
-            print(json.dumps(payload))
             raise ValueError(jsonResponse["message"])
         id = jsonResponse["id"]
         
@@ -414,71 +417,138 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
                     response.raise_for_status()
                     jsonResponse = response.json()
                     if direction == "BUY":
+                        price = float(jsonResponse["total"])/float(jsonResponse["totalExecutedQuantity"])
                         details={
-                            "volume":float(jsonResponse["totalExecutedQuantity"])-float(jsonResponse["totalFee"]),
-                            "value":float(jsonResponse["total"])
+                            "volume":float(jsonResponse["totalExecutedQuantity"]),
+                            "value":float(jsonResponse["total"]),
+                            "fee":float(jsonResponse["totalFee"])*price
                         }
                     elif direction == "SELL":
                         details={
                             "volume":float(jsonResponse["totalExecutedQuantity"]),
-                            "value":float(jsonResponse["total"])-float(jsonResponse["totalFee"])
+                            "value":float(jsonResponse["total"]),
+                            "fee":float(jsonResponse["totalFee"])
                         }
                     return details
                 time.sleep(1)
             except Exception as e:
-                logPost(f"During order check: {e}",'2')
+                logPost(f"During order check: {base}{quote} {direction} ~ {e}",'2')
                 return details
     except Exception as e:
-        logPost(f"During Trade: {e}",'2')
+        logPost(f"During Trade: {base}{quote} {direction} ~ {e}",'2')
         return None
 
 
-def trend(session, pair):
+def findTrend(session, pair):
+    printLog(f"Finding {pair} trend")
     answer={
         "trend":1,
         "rsi":50,
+        "atr":0,
         "bars":[]
     }
     url = f"https://api.valr.com/v1/public/{pair}/markprice/buckets?periodSeconds=86400"
+    shortUrl = f"https://api.valr.com/v1/public/{pair}/markprice/buckets?periodSeconds=21600"
     result = session.get(url)
     if result.status_code == 200:
         result = result.json()
         if len(result) > 60:
             shortTerm = 0
             longTerm = 0
+            shortResult = session.get(shortUrl)
+            if shortResult.status_code == 200:
+                shortResult = shortResult.json()
+                shortResult = shortResult[:56]
+            else:
+                print(shortResult.content)
+                shortResult = result[:14]
+
             for line in result:
                 answer["bars"].append(float(line["close"]))
 
-            for line in result[:14]:
-                shortTerm += float(line["close"])
-            shortTerm = shortTerm/14
+            shortTerm = float(shortResult[-1]["close"])
+            for line in reversed(shortResult):
+                shortTerm = ((shortTerm*3) + float(line["close"]))/4
+            #shortTerm = shortTerm/len(shortResult)
             
+            longTerm = 0
             for line in result[:60]:
                 longTerm += float(line["close"])
-            longTerm = longTerm/60
-            trend = (shortTerm/longTerm)
-            answer["trend"]=trunc(trend,3)
+            longTerm = longTerm/len(result[:60])
+            answer["trend"]=trunc((shortTerm/longTerm),4)
 
             up = 0
             down = 0
-            for key, line in enumerate(result[:14]):
-                change = float(result[key]["close"]) - float(result[key+1]["close"])
-                if change > 0:
-                    up += change
-                else:
-                    down += abs(change)
-            up = up/14
-            down = down/14
-            answer["rsi"] = trunc(100-(100/(1+(up/down))),2)
+            for key, line in enumerate(shortResult):
+                if len(shortResult) != (key+1):
+                    change = float(shortResult[key]["close"]) - float(shortResult[key+1]["close"])
+                    if change > 0:
+                        up += change
+                    else:
+                        down += abs(change)
+            up = up/(len(shortResult)-1)
+            down = down/(len(shortResult)-1)
+            answer["rsi"] = trunc(100-(100/(1+(up/down))),3)
 
+            atr = 0
+            for key, line in enumerate(result[1:]):
+                tr = max((float(line['high'])-float(line['low'])), abs(float(line['high'])-float(result[key-1]['close'])), abs(float(line['low'])-float(result[key-1]['close'])))
+                atr += tr
+            atr = ((atr/(len(result)-1))/longTerm)
+            answer['atr'] = trunc(atr,4)
+
+
+            return answer
+        elif len(result)>15:
+            printLog(f"Bucket List for {pair} not sufficient for trend", True)
+            print(f"\tBucket size:{len(result)}")
+            shortResult = session.get(shortUrl)
+            if shortResult.status_code == 200:
+                shortResult = shortResult.json()
+            else:
+                print(shortResult.content)
+                shortResult = result[:14]
+                print("Short list not found")
+            up = 0
+            down = 0
+            for key, line in enumerate(shortResult):
+                if len(shortResult) != (key+1):
+                    change = float(shortResult[key]["close"]) - float(shortResult[key+1]["close"])
+                    if change > 0:
+                        up += change
+                    else:
+                        down += abs(change)
+            up = up/(len(shortResult)-1)
+            down = down/(len(shortResult)-1)
+            answer["rsi"] = trunc(100-(100/(1+(up/down))),2)
+            return answer
         else:
             printLog(f"Bucket List for {pair} not sufficient", True)
             print(f"\tBucket size:{len(result)}")
+            return answer
     else:
-        print(result.reason)
+        printLog(result.reason, True)
         print(result.content)
-        raise ValueError("Error retreiving bucket data")
-    return answer
+        return answer
+
+def findGeneralTrend(currency, config=Config):
+    currencyList = []
+    if currency == "ZAR":
+        currencyList = config.ZAR
+    elif currency == "USDC":
+        currencyList = config.USDC
+    elif currency == "USDT":
+        currencyList = config.USDT
+        
+    marketTrend = 0
+    marketRSI = 0
+    for entry in currencyList:
+        marketTrend += entry["trend"]
+        marketRSI += entry["rsi"]
+    trend = marketTrend/len(currencyList)
+    rsi = marketRSI/len(currencyList)
+    return (trend+((rsi/100)+.5))/2
+
 
 def beta(session, base, quote, bars):
     """
@@ -539,7 +609,6 @@ def beta(session, base, quote, bars):
             break
     return beta
 
-
 def logPost(snippet, code='2'):
     """
     Code '1': Info
@@ -565,12 +634,12 @@ def logPost(snippet, code='2'):
             print("Status code: "+str(result.status_code))
             print(result.text)
             print('Original exception: ')
-            print(post_message)
+            print(snippet)
     except Exception as c:
         printLog("Logging server down . . .", True)
         print(str(c))
         print('Original exception: ')
-        print(post_message)
+        print(snippet)
 
 
 def bmd_logger(function):
@@ -650,14 +719,12 @@ def botLoop(config = Config):
     #Sell irrelevant accounts and confirm balances
     printLog("Checking bot balances . . .")
     for bot in bots:
-        if bot.active:
-            checkBalances(config, bot)
+        checkBalances(config, bot)
 
     #Find total equity
     printLog("Finding bot equity . . .")
     for bot in bots:
-        if bot.active:
-            findEquity(config, bot)
+        findEquity(config, bot)
                
     #Find Bot Balance nr and value
     printLog("Finding balance value . . .")
@@ -697,10 +764,16 @@ def checkBalances(config = Config, bot = db.Bot):
     try:
         printLog("Check Balances")
 
+        downturnProtection = False
+        if not bot.active:
+            if bot.downturn_protection:
+                downturnProtection = True
+            else:
+                return
         accounts = db.getActiveAccounts(bot_id=bot.id)
         jsonResponse = None
         repeat = True
-        
+
         while repeat:
             ts = int(time.time())*1000
             verb = "GET"
@@ -724,44 +797,99 @@ def checkBalances(config = Config, bot = db.Bot):
             for entry in jsonResponse:
                 found = False
                 if entry["currency"] == bot.currency: #Check for bot currency
-                    found = True
                     if float(entry["available"]) != bot.quote_balance:
                         bot.quote_balance = float(entry["available"])
                         bot.update()
+                    continue
 
-                
+                for account in accounts:    #Check Accounts
+                    if account.base == entry["currency"]:
+                        found = True
+                        if downturnProtection: #Liquidate for downturn protection
+                            stake = 0
+                            if account.base in config.stake:    #Unstake for liquidation
+                                stake = updateStake(bot.key, bot.secret, entry["currency"])
+                                if stake != 0:
+                                    try:
+                                        ts = int(time.time()*1000)
+                                        payload = {}
+                                        verb = "POST"
+                                        path = "/v1/staking/un-stake"
+                                        body = {
+                                            "currencySymbol":account.base,
+                                            "amount":f"{stake}"
+                                        }
+                                        url=f"https://api.valr.com{path}"
+                                        sign = getSign(bot.secret,ts,verb,path,json.dumps(body))
+                                        headers = {
+                                            'Content-Type': 'application/json',
+                                            'X-VALR-API-KEY': bot.key,
+                                            'X-VALR-SIGNATURE': str(sign),
+                                            'X-VALR-TIMESTAMP': str(ts),
+                                        }
+                                        response = externalSession.post(url, headers=headers, json=body)
+                                        if response.status_code != 202:
+                                            msg = f"Error during closing stake: \n<br>{response.reason}<br>{response.content}"
+                                            logPost(msg, '2')
+                                            stake = 0
+                                    except Exception as e:
+                                        logPost(f"Error during closing stake: {e}")
+                                        stake = 0
 
-                if not found: #Check Accounts
-                    for account in accounts:
-                        if account.base == entry["currency"]:
-                            found = True
-                            if account.volume != (float(entry["available"])+account.stake):
-                                if account.base in config.stake:
-                                    account.stake = updateStake(bot.key, bot.secret, account.base)
-                                account.volume = float(entry["available"])+account.stake
+                            currencyList = []
+                            if bot.currency == "ZAR":
+                                currencyList = config.ZAR
+                            elif bot.currency == "USDC":
+                                currencyList = config.USDC
+                            elif bot.currency == "USDT":
+                                currencyList = config.USDT
+
+                            decimal = 0
+                            price = 0
+                            minValue = 0
+                            for ticker in currencyList:
+                                if ticker["base"] == account.base:
+                                    decimal = int(ticker["decimal"])
+                                    price = float(ticker["price"])
+                                    minValue = float(ticker["minTrade"])
+
+                            volume = float(entry["available"])+stake  
+                            if volume*price > minValue:
+                                result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, volume, decimal)
+                                if result:
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                                    transaction.post()
+                            if account.swing != 0:
+                                account.swing = 0
                                 account.update()
-                            break
-                
 
-                if not found and entry["currency"] in ["ZAR","USDC","USDT"]: #Quote Currencies
+                        if account.volume != (float(entry["available"])+account.stake):
+                            if account.base in config.stake:
+                                account.stake = updateStake(bot.key, bot.secret, account.base)
+                            account.volume = float(entry["available"])+account.stake
+                            account.update()
+                        break
+
+                if downturnProtection:
+                    continue
+
+                if not found and entry["currency"] in ["ZAR","USDC","USDT"]: #Fix Quote Currencies
                     if bot.currency == "ZAR":
                         if entry["currency"] == "ZAR":
                             found = True
                         elif entry["currency"] == "USDC":
                             found = True
                             if float(entry["total"]) > 1: #Min base amount
-                                printLog("Selling USDC for ZAR", True)
                                 result = trade("SELL", "ZAR", "USDC", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR",int(time.time())])
                                     transaction.post()
                         elif entry["currency"] == "USDT":
                             found = True
                             if float(entry["total"]) > 1: #Min base amount
-                                printLog("Selling USDT for ZAR", True)
                                 result = trade("SELL", "ZAR", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDT","ZAR",int(time.time())])
                                     transaction.post()
                     elif bot.currency == "USDC":
                         if entry["currency"] == "USDC":
@@ -769,18 +897,16 @@ def checkBalances(config = Config, bot = db.Bot):
                         elif entry["currency"] == "ZAR":
                             found = True
                             if float(entry["total"]) > 10: #Min quote amount
-                                printLog("Buying USDC with ZAR", True)
                                 result = trade("BUY", "ZAR", "USDC", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR",int(time.time())])
                                     transaction.post()
                         elif entry["currency"] == "USDT":
                             found = True
                             if float(entry["total"]) > 1: #Min base amount
-                                printLog("Selling USDT for USDC", True)
                                 result = trade("SELL", "USDC", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDT","USDC",int(time.time())])
                                     transaction.post()
                     elif bot.currency == "USDT":
                         if entry["currency"] == "USDT":
@@ -788,22 +914,21 @@ def checkBalances(config = Config, bot = db.Bot):
                         elif entry["currency"] == "USDC":
                             found = True
                             if float(entry["total"]) > 1: #Min quote amount
-                                printLog("Buying USDT with USDC", True)
                                 result = trade("BUY", "USDC", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDT","USDC",int(time.time())])
                                     transaction.post()
                         elif entry["currency"] == "ZAR":
                             found = True
                             if float(entry["total"]) > 10: #Min quote amount
-                                printLog("Buying USDT with ZAR", True)
                                 result = trade("BUY", "ZAR", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDT","ZAR",int(time.time())])
                                     transaction.post()
+                else:
+                    continue
 
-
-                if not found and entry["currency"] in config.stake:
+                if not found and entry["currency"] in config.stake: #Unstake tickers not on account
                     stake = updateStake(bot.key, bot.secret, entry["currency"])
                     if stake != 0:
                         try:
@@ -831,18 +956,21 @@ def checkBalances(config = Config, bot = db.Bot):
                             logPost(f"Error during closing stake: {e}")
 
 
+                #Sell tickers not on account
+
                 if not found: #Sell for ZAR tickers
                     for ticker in config.ZAR:
                         if ticker["base"] == entry["currency"]:
                             found = True
                             if float(entry["total"])*float(ticker["price"]) > ticker["minTrade"]:
                                 repeat = True
-                                printLog(f"Selling {entry["currency"]} for ZAR", True)
                                 result = trade("SELL", "ZAR", entry["currency"], bot.key, bot.secret, entry["available"], ticker["decimal"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"ZAR",int(time.time())])
                                     transaction.post()
                             break
+                else:
+                    continue
                 
                                 
                 if not found: #Sell for USDC tickers
@@ -851,12 +979,13 @@ def checkBalances(config = Config, bot = db.Bot):
                             found = True
                             if float(entry["total"])*ticker["price"] > float(ticker["minTrade"]):
                                 repeat = True
-                                printLog(f"Selling {entry["currency"]} for USDC", True)
                                 result = trade("SELL", "USDC", entry["currency"], bot.key, bot.secret, entry["available"], ticker["decimal"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"USDC",int(time.time())])
                                     transaction.post()
                             break
+                else:
+                    continue
                     
             
                 if not found: #SELL for USDT tickers
@@ -865,12 +994,13 @@ def checkBalances(config = Config, bot = db.Bot):
                             found = True
                             if float(entry["total"])*float(ticker["price"]) > float(ticker["minTrade"]):
                                 repeat = True
-                                printLog(f"Selling {entry["currency"]} for USDT", True)
                                 result = trade("SELL", "USDT", entry["currency"], bot.key, bot.secret, entry["available"], int(ticker['decimal']))
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR"])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"USDT",int(time.time())])
                                     transaction.post()
                             break
+                else:
+                    continue
 
 
         for account in accounts:
@@ -885,6 +1015,34 @@ def checkBalances(config = Config, bot = db.Bot):
     except Exception as e:
         logPost(f"During checkBalances: {e}",'2')
                         
+def liquidateBot(config=Config, bot=db.Bot):
+    currencyList = []
+    if bot.currency == "ZAR":
+        currencyList = config.ZAR
+    elif bot.currency == "USDC":
+        currencyList = config.USDC
+    elif bot.currency == "USDT":
+        currencyList = config.USDT
+
+    accounts = db.getActiveAccounts(bot_id=bot.id)
+    for account in accounts:
+        decimal = 0
+        for entry in currencyList:
+            if entry["base"] == account.base:
+                decimal = int(entry["decimal"])
+                minTrade = float(entry["minTrade"])
+                break
+        if account.volume > minTrade:
+            result = trade("SELL",bot.currency,account.base,bot.key,bot.secret,account.volume,decimal)
+            if result:
+                transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                transaction.post()
+                account.volume -= result["volume"]
+                account.update()
+                bot.quote_balance += result["value"]
+                bot.update()
+    
+
 def findEquity(config = Config, bot = db.Bot):
     """
     Total recorded equity for bot
@@ -971,7 +1129,7 @@ def setAccounts(config = Config, bot = db.Bot):
         difference = accountNrs - bot.balance_nr
 
         for entry in reversed(currencyList):
-            for account in accoutns:
+            for account in accounts:
                 if account.base == entry["base"]:
                     result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, account.volume, entry["decimal"])
                     if result:
@@ -1004,7 +1162,6 @@ def setAccounts(config = Config, bot = db.Bot):
                     found = True
                     break
             if not found:
-                printLog(f"Buying {newAccount["base"]} with {bot.currency} to open account", True)
                 result = trade("BUY", bot.currency, newAccount["base"], bot.key, bot.secret, bot.balance_value)
                 if result:
                     transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],newAccount["base"],bot.currency,int(time.time())])
@@ -1014,12 +1171,10 @@ def setAccounts(config = Config, bot = db.Bot):
                     account = db.ActiveAccount([0, bot.id, newAccount["base"], result["volume"], 0, "", 0])
                     account.post()
                     accounts.append(account)
-                    printLog(f"{account.base} account opened with transaction")
                 else:
                     account = db.ActiveAccount([0, bot.id, newAccount["base"], 0, 0, "", 0])
                     account.post()
                     accounts.append(account)
-                    printLog(f"{account.base} account opened")
                 difference -= 1
             if difference <= 0:
                 break
@@ -1035,14 +1190,12 @@ def balanceBots(config = Config, bot = db.Bot):
     elif bot.currency == "USDT":
         currencyList = config.USDT
 
-    marketTrend = 0
-    marketRSI = 0
+    marketATR = 0
     for entry in currencyList:
-        marketTrend += entry["trend"]
-        marketRSI += entry["rsi"]
-    marketTrend = marketTrend/len(currencyList)
-    marketRSI = marketRSI/len(currencyList)
-    generalTrend = (marketTrend+(marketRSI/50))/2
+        marketATR += entry['atr']
+    marketATR = marketATR/len(currencyList)
+
+    generalTrend = findGeneralTrend(bot.currency, config)
 
     for account in accounts:
         currencyDetails = None
@@ -1050,16 +1203,16 @@ def balanceBots(config = Config, bot = db.Bot):
             if entry["base"] == account.base:
                 currencyDetails = entry
 
-
         price = float(currencyDetails["price"])
         decimal = int(currencyDetails["decimal"])
         value = account.volume * price
         
-        marginFactor = currencyDetails["votality"]-1 if currencyDetails["votality"] > 0.1 else 0
-        margin = bot.margin*(1+(0.2*marginFactor)) if bot.dynamic_margin else bot.margin
+        
+        avgDiff = (bot.margin+currencyDetails['atr'])/(2*marketATR)
+        combinedVolatility = (avgDiff+(currencyDetails["volatility"] if currencyDetails["volatility"]!=0 else avgDiff))/2
+        margin = bot.margin*min(1.2,max(0.8,combinedVolatility)) if bot.dynamic_margin else bot.margin
 
-        weight = 1+(2*(generalTrend-1))
-        weight = max(0.5, min(1, weight)) #Adjustment capped at 50% on downtrend
+        weight = max(0.8, min(1, generalTrend)) #Adjustment capped at 80% on downtrend
         balanceValue = bot.balance_value * weight if bot.refined_weight else bot.balance_value
 
         if value > balanceValue:
@@ -1067,9 +1220,8 @@ def balanceBots(config = Config, bot = db.Bot):
             if account.direction != "UP":
                 account.direction = "UP"
                 account.update()
-            if difference > margin*4:
+            if difference > margin*5:
                 sellVolume = (value-balanceValue)/price
-                printLog(f"Withdrawing {account.base} for {bot.currency} during balancing", True)
                 result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, sellVolume, decimal)
                 if result:
                     transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
@@ -1087,7 +1239,6 @@ def balanceBots(config = Config, bot = db.Bot):
                 account.update()
             elif difference < (account.swing*(1-((account.swing+margin)/2))) and difference > margin:
                 sellVolume = (value-balanceValue)/price
-                printLog(f"Selling {account.base} for {bot.currency} during balancing", True)
                 result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, sellVolume, decimal)
                 if result:
                     transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
@@ -1102,11 +1253,10 @@ def balanceBots(config = Config, bot = db.Bot):
             if account.direction != "DOWN":
                 account.direction = "DOWN"
                 account.update()
-            if difference > margin*4:
+            if difference > margin*5:
                 buyValue = balanceValue-value
                 if buyValue < bot.quote_balance:
-                    printLog(f"Investing {account.base} with {bot.currency} during balancing", True)
-                    result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue)
+                    result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue, decimal)
                     if result:
                         transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
                         transaction.post()
@@ -1123,8 +1273,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 account.update()
             elif difference < (account.swing*(1-((account.swing+margin)/2))) and difference > margin:
                 buyValue = balanceValue-value
-                printLog(f"Buying {account.base} with {bot.currency} during balancing", True)
-                result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue)
+                result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue, decimal)
                 if result:
                     transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
                     transaction.post()
@@ -1206,6 +1355,7 @@ def setStake(config = Config, bot = db.Bot):
                         logPost(f"During Staking: {e}")
 
 def updateStake(key, secret, base):
+    "Returns staked volume"
     try:
         ts = int(time.time())*1000
         payload = {}
@@ -1227,9 +1377,340 @@ def updateStake(key, secret, base):
         logPost(f"During Stake Upadte: {e}",'2')
         return 0
 
+#Emails
+
+def emailBase(content):
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>BooF</title>
+    </head>
+    <body>
+        <div style="background-color:rgba(200, 200, 200); margin:5px; padding:10px; border-radius:30px">
+            <br>
+            <a href="https://www.boof-bots.com"><img src="https://www.boof-bots.com/static/images/boof.png" style="width: 320px; margin: auto;"/></a>
+            <br>
+            <div style="background-color: rgba(235, 255, 255); padding:20px; border-radius:30px;">
+                {content}
+            </div>
+            <br>
+            <div style="background-color:rgb(14, 118, 145); margin:5px; padding:10px; border-radius:30px;">
+                <p style="color:black;"><b>BooF</b> was created with love by <a href="https://www.bmd-studios.com" target="_blank">MrBlindMouse</a></p>
+                <p style="color:black;">For any queries, please contact us via email at <a href="mailto:admid@bmd-studios.com">admid@bmd-studios.com</a></p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+def feedbackEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>Its been 2 weeks, is everything ok?</p>
+        <p style='color:black;'>If you have any feedback to make the BooF bots better, please send us a mail at <address><a href='mailto:admin@bmd-studios.com'>admin@bmd-studios.com</a></address>!</p>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("Feedback Email sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "What happened?", recipient=user.email)
+
+def unVerifiedEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>This is a reminder that your BooF account has not been verified.</p>
+        <p style='color:black;'>To verify your account, login; and under 'Profile' request a verification email. Then follow the instructions once your receive the email.</p>
+        <p style='color:black;'>If you do not verify within the next 2 days, your account it will be deleted.</p><br>
+        <p style='color:black;'>Hope all goes well,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("unVerifiedEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "Account Verification?", recipient=user.email)
+
+def botsInactiveEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>Did you forget to activate your bots?</p>
+        <p style='color:black;'>Under the bot's panel, click on the 'Config' button and either select 'Active' or 'Downturn Protection'(or both) to turn on the bot.</p>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("botsInactiveEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "Everything ok?", recipient=user.email)
+
+def noCreditsReminderEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>Its been a while, is everything ok?</p>
+        <p style='color:black;'>You're bots are in-active and credits zero. To buy more credits, log in to your account and go to the 'Buy Credits' page.</p>
+        <p style='color:black;'>If you have any feedback to make the BooF bots better, please send us a mail at <address><a href='mailto:admin@bmd-studios.com'>admin@bmd-studios.com</a></address>!</p>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("noCreditsReminderEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "What happened?", recipient=user.email)
+
+def noCreditsEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hey {user.name},</p><br>
+        <p style='color:black;'>I'm sorry to say, but your Credits has run out and bots as been shut down.</p>
+        <p style='color:black;'>To buy more credits, log in to your account and go to the 'Buy Credits' page.</p>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("noCreditsEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "No Credit Warning", recipient=user.email)
+
+def creditsReminderEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hi {user.name},</p><br>
+        <p style='color:black;'>You're Credits are running low. You've just passed the 0.25Credits mark.</p>
+        <p style='color:black;'>Once your Credits run out your bots will be paused. To buy more credits, log in to your account and go to the 'Buy Credits' page.</p>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("creditsReminderEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "Credit Warning", recipient=user.email)
+
+def creditsFollowUpReminderEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hey {user.name},</p><br>
+        <p style='color:black;'>You're Credits are running low. You've just passed the 0.1Credits mark and falling fast.</p>
+        <p style='color:black;'>Once your Credits run out your bots will be paused. To buy more credits, log in to your account and go to the 'Buy Credits' page.</p>
+        <p style='color:black;'>We hope to see you again soon!</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("creditsFollowUpReminderEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "Low Credit Warning", recipient=user.email)
+
+def downturnProtectionEmail(config=Config, user=db.User):
+    body = f"""
+        <p style='color:black;'>Hey {user.name},</p><br>
+        <p style='color:black;'>You're receiving this email to notify you that one or more of your bots has been paused. The general trend has fallen below 0.9 and Downturn Protection has been activated. Once the trend recovers your bot will automatically resume.</p>
+        <p style='color:black;'>If you wish to resume your bot regardless; please go to the bot's config page, deselect 'Downturn Protection', select 'Active' and then click 'Update'</p>
+        <p style='color:black;'>If you do not want your bot to resume when the trend recovers, simply de-activate Downturn Protection without activating the bot.</p>
+        <p style='color:black;'>We hope everything goes well.</p><br>
+        <p style='color:black;'>Best wishes,</p>
+        <p style='color:black;'>&emsp;The BooF Team</p>
+    """
+    print("creditsFollowUpReminderEmail sent")
+    #postmark.sendMail(config.postmarkKey, emailBase(body), "Downturn Protection", recipient=user.email)
+
+# Admin Functions
+
+def checkTokens():
+    ts = int(time.time())
+    tokens = db.getTokens()
+    for token in tokens:
+        if (token.ts+(token.period*60*60)) < ts:
+            token.delete()
+
+def checkUserReminders(config=Config):
+    "Check reminders"
+    ts = int(time.time())
+    users = db.getUsers()
+    for user in users:
+        reminders = user.reminder
+        credits = db.getCredits(user_id=user.id)
+        for reminder in reminders[:]:
+            if int(reminder["code"]) == 0:      #Verified check
+                if user.verified:
+                    reminders.remove(reminder)
+                elif ts - int(reminder['ts']) > (5*24*60*60):   #5 Days not verified
+                    found = False
+                    for checkReminder in reminders:
+                        if int(checkReminder["code"]) == 6:
+                            found = True
+                            break
+                    if not found:
+                        unVerifiedEmail(config, user)
+                        newEntry={
+                            'code':6,
+                            'ts':ts,
+                            'description':'Unverified for 5 days'
+                        }
+                        reminders.append(newEntry)
+
+            elif int(reminder["code"]) == 1:    #0.25 credits check
+                if credits['credit'] > 0.25:
+                    reminders.remove(reminder)
+
+            elif int(reminder["code"]) == 2:    #0.1 credits check
+                if credits['credit'] > 0.1:
+                    reminders.remove(reminder)
+
+            elif int(reminder["code"]) == 3:    #No credits check
+                if credits['credit'] > 0:
+                    reminders.remove(reminder)
+                else:   #Stop bots due to no credits remaining
+                    bots = db.getBots(user_id=user.id)
+                    for bot in bots:
+                        if bot.active:
+                            bot.stop()
+                    if ts-int(reminder['ts']) > (7*24*60*60): #7 days no credit
+                        found = False
+                        for checkReminder in reminders:
+                            if int(checkReminder['code']) == 4:
+                                found = True
+                                break
+                        if not found:
+                            noCreditsReminderEmail(config, user)
+                            newEntry={
+                                'code':4,
+                                'ts':ts,
+                                'description':'Out of credits for 1 week'
+                            }
+                            reminders.append(newEntry)
+
+            elif int(reminder["code"]) == 4:    #1 Week credit check
+                if credits['credit'] > 0:
+                    reminders.remove(reminder)
+
+            elif int(reminder['code']) == 5:    #Activity Check
+                if credits['active'] > 0:
+                    reminders.remove(reminder)
+
+            elif int(reminder['code']) == 6:    #Final verified check
+                if user.verified:
+                    reminders.remove[reminder]
+                elif (ts - int(reminder['ts'])) > (2*24*60*60): #Delete user after 7 days(2 after reminder) not verified
+                    user.delete()
+                    break
+            
+            elif int(reminder['code']) == 7:    #Activity Check
+                if credits['active'] > 0:
+                    reminders.remove(reminder)
+                elif (ts - int(reminder['ts'])) > (14*24*60*60):    #14 Days inactive
+                    feedbackEmail(config, user)
+                    newEntry={
+                        'code':5,
+                        'ts':ts,
+                        'description':'2 Weeks inactive'
+                    }
+                    reminders.append(newEntry)
+
+        user.reminder = reminders
+        user.update()
+
+def checkUserCredits(config=Config):
+    "Set reminders for credits and bots"
+    users = db.getUsers()
+    for user in users:
+        ts = int(time.time())
+        credits = db.getCredits(user_id=user.id)
+        bots = db.getBots(user_id=user.id)
+
+        downturn = False
+        for bot in bots:
+            if bot.downturn_protection:
+                downturn = True
+                break
+        if credits['active'] == 0 and len(bots) != 0 and credits['credit'] > 0 and not downturn:  #Check for inactive bots
+            reminders = user.reminder
+            found = False
+            for reminder in reminders:
+                if int(reminder['code']) == 7:
+                    found = True
+                    break
+            if not found:
+                botsInactiveEmail(config, user)
+                newEntry={
+                    'code':7,
+                    'ts':ts,
+                    'description':'Bots inactive'
+                }
+                reminders.append(newEntry)
+                user.reminder = reminders
+                user.update()
+
+
+        if credits['credit'] <= 0:  #0 Credits remaining
+            for bot in bots:
+                if bot.active:
+                    bot.stop()
+
+            reminders = user.reminder
+            found = False
+            for reminder in reminders:
+                if int(reminder['code']) == 3:
+                    found = True
+                    break
+            if not found:
+                noCreditsEmail(config, user)
+                newEntry={
+                    'code':3,
+                    'ts':ts,
+                    'description':'Credits has run out'
+                }
+                reminders.append(newEntry)
+                user.reminder = reminders
+                user.update()
+
+        elif credits['credit'] < 0.1:   #0.1 Credits remaining
+            reminders = user.reminder
+            found = False
+            for reminder in reminders:
+                if int(reminder['code']) == 2:
+                    found = True
+                    break
+            if not found:
+                creditsFollowUpReminderEmail(config, user)
+                newEntry={
+                    'code':2,
+                    'ts':ts,
+                    'description':'0.1Credits remaining'
+                }
+                reminders.append(newEntry)
+                user.reminder = reminders
+                user.update()
+
+        elif credits['credit'] < 0.25:   #0.25 Credits remaining
+            reminders = user.reminder
+            found = False
+            for reminder in reminders:
+                if int(reminder['code']) == 1:
+                    found = True
+                    break
+            if not found:
+                creditsReminderEmail(config, user)
+                newEntry={
+                    'code':1,
+                    'ts':ts,
+                    'description':'0.25Credits remaining'
+                }
+                reminders.append(newEntry)
+                user.reminder = reminders
+                user.update()
+
+        active = 0
+        for bot in bots:    #Audit active bots vs active credits
+            if bot.active:
+                active += 1
+        if credits['active'] < active:
+            diff = active - credits['active']
+            for i in range(diff):
+                newEntry = db.Credit([0,user.id,0,'',0,0,'START',int(time.time())])
+                newEntry.post()
+        elif credits['active'] > active:
+            diff = credits['active'] - active
+            for i in range(diff):
+                newEntry = db.Credit([0,user.id,0,'',0,0,'PAUSE',int(time.time())])
+                newEntry.post()
+
+
+
+#Main Loops
 
 @bmd_logger
-def loop(session, config=Config):
+def bot_loop(session, config=Config):
     config.loadState()
     config.updateEnv()
     config.updatePrice(session)
@@ -1237,6 +1718,81 @@ def loop(session, config=Config):
     botLoop(config)
     config.saveState()
     bmd_report(config)
+
+@bmd_logger
+def admin_loop(config=Config):
+    printLog("Admin Loop . . .", True)
+    checkTokens()
+    checkUserReminders(config)
+    checkUserCredits(config)
+
+@bmd_logger
+def update_loop(session, config=Config):
+    config.updateTickers(session)
+
+    downturnStop = 0.9
+    upturnStart = 0.98
+
+    bots = db.getBots()
+    for bot in bots:
+        if bot.downturn_protection:
+            credits = db.getCredits(bot_id=bot.id)
+            if credits["credit"]>0:
+
+                generalTrend = findGeneralTrend(bot.currency, config)
+
+                if bot.active and generalTrend < downturnStop:
+                    printLog(f'Downturn Protection: Liquidating bot:{bot.id} for user:{bot.user_id}', True)
+                    bot.stop()
+                    message = db.Message([0, bot.user_id, "WARNING", "Downturn Protection: Your bot has been stopped and liquidated due to significant negative trend"])
+                    message.post()
+                    downturnProtectionEmail(config, db.getUsers(id=bot.user_id))
+                elif not bot.active and generalTrend > upturnStart:
+                    printLog(f'Downturn Protection: Starting bot:{bot.id} for user:{bot.user_id}', True)
+                    bot.start()
+                    message = db.Message([0, bot.user_id, "INFO", "Downturn Protection: Your bot has been re-activated, the market is recovering"])
+                    message.post()
+
+    users = db.getUsers()
+    verifiedUsers = 0
+    for user in users:
+        if user.verified:
+            verifiedUsers += 1
+    activeBots = 0
+    for bot in bots:
+        if bot.active:
+            activeBots +=1
+
+    reportString = f"<p>BooF Report:<p><p>Users(verified): {len(users)}({verifiedUsers}) | Bots(Active): {len(bots)}({activeBots})"
+    trend = 0
+    rsi = 0
+    for entry in config.ZAR:
+        trend += entry["trend"]
+        rsi += entry["rsi"]
+    trend = trend/len(config.ZAR)
+    rsi = rsi/len(config.ZAR)
+    generalTrend = ((trend+((rsi/100)+0.5)))/2
+    ZARString = f"<p>ZAR Trend: {trunc(trend,3)} | RSI: {trunc(rsi,1)} | General Trend: {trunc(generalTrend,3)}</p>"
+    trend = 0
+    rsi = 0
+    for entry in config.USDC:
+        trend += entry["trend"]
+        rsi += entry["rsi"]
+    trend = trend/len(config.USDC)
+    rsi = rsi/len(config.USDC)
+    generalTrend = (trend+((rsi/100)+0.5))/2
+    USDCString = f"<p>USDC trend: {trunc(trend,3)} | RSI: {trunc(rsi,1)} | General Trend: {trunc(generalTrend,3)}</p>"
+    trend = 0
+    rsi = 0
+    for entry in config.USDT:
+        trend += entry["trend"]
+        rsi += entry["rsi"]
+    trend = trend/len(config.USDT)
+    rsi = rsi/len(config.USDT)
+    generalTrend = (trend+((rsi/100)+0.5))/2
+    USDTString = f"<p>USDT trend: {trunc(trend,3)} | RSI: {trunc(rsi,1)} | General Trend: {trunc(generalTrend,3)}</p>"
+
+    logPost(f"{reportString}<br>{ZARString}{USDCString}{USDTString}", '1')
 
 
 externalSession = createSession(360) #For authenticated api data, ie. account data and trading
@@ -1249,20 +1805,31 @@ if __name__ == "__main__":
 
     config = Config()
     try:
-        printLog("Loading config . . .")
+        printLog("Loading config . . .", True)
         config.loadState()
+        printLog("Initial state load successful . . .")
     except Exception as e:
+        printLog("Failed Loading State . . .", True)
         config.updateEnv()
         config.saveState()
         config.updateTickers(internalSession)
         config.updatePrice(internalSession)
         config.saveState()
 
+
     if running != "running":
-        loop(internalSession, config)
-    else:
-        schedule.every(10).seconds.do(loop, session=internalSession, config=config)
-        schedule.every().day.at('00:00').do(config.updateTickers, internalSession)
+        printLog("Running once", True)
+        update_loop(internalSession,config)
+
+    else: #Main operation
+        schedule.every(30).seconds.do(bot_loop, session=internalSession, config=config)
+
+        schedule.every(1).hours.do(admin_loop, config=config)
+
+        schedule.every().day.at("03:00").do(update_loop, session=internalSession, config=config)
+        schedule.every().day.at("09:00").do(update_loop, session=internalSession, config=config)
+        schedule.every().day.at("15:00").do(update_loop, session=internalSession, config=config)
+        schedule.every().day.at("21:00").do(update_loop, session=internalSession, config=config)
 
         try:
             while True:

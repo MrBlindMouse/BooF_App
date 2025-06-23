@@ -7,7 +7,7 @@ import time, json
 import hashlib, base64, hmac
 import shortuuid
 
-import db, valr, postmark
+import db, valr, postmark, paypal
 
 app = Flask("BooF")
 envConfig = dotenv_values(".env")
@@ -17,6 +17,10 @@ app.config['SESSION_COOKIE_SECURE'] = False #Set to True in production
 app.config['SESSION_COOKIE_SAMESITE']='Strict' #Set to 'Lax' from 'Strict' if something strange happens with cookies
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_TIME = 15*60
+
+paypalID = envConfig["PAYPAL_ID"]
+paypalSecret = envConfig["PAYPAL_SECRET"]
+paypalMode = envConfig["PAYPAL_MODE"]
 
 # Forms
 class loginForm(FlaskForm):
@@ -59,6 +63,7 @@ def botConfigForm(bot = db.Bot):
         margin = IntegerField("Trading Margin", validators=[DataRequired(), NumberRange(min=2, max=15)], default=int(bot.margin*100))
         refinedWeight = BooleanField("Refined Weight", default=bot.refined_weight)
         dynamicMargin = BooleanField("Dynamic Margin", default=bot.dynamic_margin)
+        downturnProtection = BooleanField("Downturn Protection", default=bot.downturn_protection)
         active = BooleanField("Active", default=bot.active)
         submit = SubmitField("Update")
     return Form()
@@ -163,65 +168,12 @@ def passwordResetEmail(user=db.User):
         <p style='color:black;'>- or -</p>
         <p style='color:black;'>Copy the following into you web browser:</p>
         <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">https://www.boof-bots.com/verify/{verifyKey}</a></p>
-        <p style='color:black;'>This link will only stay active for 1 hour. If this time has passed, please resubmit the request.</p><br><br>
+        <p style='color:black;'>This link will only stay active for 1 hour. If this time has passed, please resubmit the request.</p><br>
         <p style='color:black;'>Hope all goes well!</p>
         <p style='color:black;'>&emsp;The BooF Team</p>
         """
     htmlBody = render_template('emailBase.html', message=body)
     postmark.sendMail(config.postmarkKey, htmlBody, "Password Reset Request", recipient=user.email)
-
-def creditsRemainingEmail(code, user=db.User):
-    config = valr.Config()
-    config.loadState()
-
-    body = ''
-    if code == 1:
-        body = f"""
-            <p style='color:black;'>Hi {user.name},</p><br>
-            <p style='color:black;'>This is just a reminder, you have 0.25 credits remaining.</p>
-            <p style='color:black;'>If your credits run out all active bots will be paused.</p>
-            <p style='color:black;'>Best wishes,</p>
-            <p style='color:black;'>&emsp;The BooF Team</p>
-        """
-
-    elif code == 2:
-        pass
-    elif code == 3:
-        pass
-    elif code == 4:
-        pass
-
-    
-    htmlBody = render_template('emailBase.html', message=body)
-    postmark.sendMail(config.postmarkKey, htmlBody, "Account Warning", recipient=user.email)
-
-def feedbackEmail(user=db.User):
-    config = valr.Config()
-    config.loadState()
-    body = f"""
-        <p style='color:black;'>Hi {user.name},</p><br>
-        <p style='color:black;'>Its been 2 weeks since a bot has been active, is everything ok?</p><br>
-        <p style='color:black;'>If you have any feedback to make the BooF bots better, please click here</p><br>
-        <p style='color:black;'>We hope to see you again soon!</p><br>
-        <p style='color:black;'>Best wishes,</p>
-        <p style='color:black;'>&emsp;The BooF Team</p>
-    """
-    htmlBody = render_template('emailBase.html', message=body)
-    postmark.sendMail(config.postmarkKey, htmlBody, "Account Warning", recipient=user.email)
-
-def unVerifiedEmail(user=db.User):
-    config = valr.Config()
-    config.loadState()
-    body = f"""
-        <p style='color:black;'>Hi {user.name},</p><br>
-        <p style='color:black;'>This is a reminder that your BooF account has not been verified.</p>
-        <p style='color:black;'>To verify your account, login; and under 'Profile' request a verification email. Then follow the instructions once your receive the email.</p><br>
-        <p style='color:black;'>If you do not verify within the next 2 days, your account it will be deleted.</p><br><br>
-        <p style='color:black;'>Hope all goes well,</p>
-        <p style='color:black;'>&emsp;The BooF Team</p>
-    """
-    htmlBody = render_template('emailBase.html', message=body)
-    postmark.sendMail(config.postmarkKey, htmlBody, "Account Warning", recipient=user.email)
 
 
 #Routes
@@ -285,7 +237,7 @@ def login():
             })
         session.pop("message", None)
 
-    return render_template('login.html', form=form, messages=message)
+    return render_template('login.html', form=form, messages=message, meta="Boof, Smart Trading Bots for Valr")
 
 @app.route('/signup', methods=["GET","POST"])
 def signup():
@@ -306,7 +258,7 @@ def signup():
         session["message"] = "Signup Successful! Please log in using email and password"
         valr.logPost("New user signed up",'1')
         return redirect(url_for('login'))
-    return render_template("signup.html", form=form)
+    return render_template("signup.html", form=form, meta="BooF Signup")
 
 
 @app.route('/home')
@@ -370,7 +322,7 @@ def home():
         message.delete()
 
 
-    return render_template('home.html', messages=messages, user=user, bots=bots)
+    return render_template('home.html', messages=messages, user=user, bots=bots, meta="BooF Home page")
 
 @app.route('/botstats/<id>')
 def botstats(id):
@@ -401,6 +353,7 @@ def botstats(id):
         "name": bot.name,
         "id":bot.id,
         "status": bot.active,
+        "downturnProtection":bot.downturn_protection,
         "currency": bot.currency,
         "equity": bot.equity,
         "transaction":{},
@@ -452,6 +405,15 @@ def botstats(id):
         realizedProfit = 0
         if sellVolume != 0 and buyVolume != 0:
             realizedProfit = ((sellValue/sellVolume)-(buyValue/buyVolume))*min(sellVolume,buyVolume)
+        botResult["realizedProfit"] += realizedProfit
+        for line in transactions:
+            if line.base == account.base and line.quote == bot.currency and line.ts > (now-31536000):
+                if line.type == "INVEST":
+                    buyVolume += line.volume
+                    buyValue += line.value
+                elif line.type == "WITHDRAW":
+                    sellVolume += line.volume
+                    sellValue += line.value
         if sellVolume > buyVolume:
             diff = sellVolume-buyVolume
             buyVolume += diff
@@ -464,7 +426,6 @@ def botstats(id):
         if sellVolume != 0 and buyVolume != 0:
             totalProfit = ((sellValue/sellVolume)-(buyValue/buyVolume))*sellVolume
         botResult["profit"] += totalProfit
-        botResult["realizedProfit"] += realizedProfit
 
     ts = int(time.time())
     dates = []
@@ -474,9 +435,10 @@ def botstats(id):
     for date in dates:
         count = 0
         for transaction in transactions:
-            entryDate = time.localtime(transaction.ts)
-            if date.tm_mday == entryDate.tm_mday:
-                count += 1
+            if transaction.quote == bot.currency and transaction.type in ["SELL","BUY"]:
+                entryDate = time.localtime(transaction.ts)
+                if date.tm_mday == entryDate.tm_mday:
+                    count += 1
         botResult["chartCount"].append(count)
         botResult["chartDates"].append(str(time.strftime("%d %b",date)))
     return botResult
@@ -494,6 +456,8 @@ def botreport(id):
         session.pop('id', default=None)
         session["error"] = "Stop that!"
         return redirect(url_for('login'))
+    valrConfig = valr.Config()
+    valrConfig.loadState()
     data = {}
     data['name'] = bot.name
     data['status'] = bot.active
@@ -501,14 +465,45 @@ def botreport(id):
     data['currency'] = bot.currency
     data["margin"] = int(bot.margin*100)
     data['accounts'] = []
+    data['trend'] = 1
+    data['balance'] = bot.balance_value
+    rsi = 0
+    trend = 0
+    currencyList = []
+    if bot.currency == "ZAR":
+        currencyList = valrConfig.ZAR
+    elif bot.currency == "USDC":
+        currencyList = valrConfig.USDC
+    elif bot.currency == "USDT":
+        currencyList = valrConfig.USDT
+
+    for line in currencyList:
+        rsi += line['rsi']
+        trend += line['trend']
+    data['trend'] = ((trend/len(currencyList))+(((rsi/len(currencyList))/100)+.5))/2
+
+    data['weightedBalance'] = 0
+    if bot.refined_weight:
+        trendFactor = (8*((data['trend']-1)**2)) * ((data['trend']-1)/abs(data['trend']-1))
+        #weight = 1+trendFactor
+        weight = data['trend']
+        weight = max(0.8, min(1, weight))
+        data['weightedBalance'] = data['balance'] * weight
+
     accounts = db.getActiveAccounts(bot_id=id)
     transactions = db.getTransactions(bot_id=id)
     for account in accounts:
+        price = 0
+        for entry in currencyList:
+            if entry['base'] == account.base:
+                price = float(entry["price"])
+                break
         accountEntry = {
             "base":account.base,
             "swing":account.swing,
             "direction":account.direction,
             "volume":account.volume,
+            "price":price,
             "stake":account.stake,
             "volumeBought":0,
             "valueBought":0,
@@ -534,7 +529,7 @@ def botreport(id):
     credit = db.getCredits(bot_id=id)
     data["runtime"] = credit["time"]
     data["cost"] = credit["credit"]
-    return render_template("report.html", data=data)
+    return render_template("report.html", data=data, meta="Bot Performance Report")
 
 
 @app.route('/botconfig/<id>', methods=["POST","GET"])
@@ -553,17 +548,19 @@ def botconfig(id):
         margin = int(form.margin.data)/100
         refinedWeight = bool(form.refinedWeight.data)
         dynamicMargin = bool(form.dynamicMargin.data)
+        downturnProtection = bool(form.downturnProtection.data)
         active = form.active.data
 
         if currency != bot.currency:
             valr.updateCurrency(currency, bot)
             message = db.Message([0,bot.user_id,"INFO","Bot Currency changed!"])
             message.post()
-        if name != bot.name or margin != bot.margin or refinedWeight != bot.refined_weight or dynamicMargin != bot.dynamic_margin:
+        if name != bot.name or margin != bot.margin or refinedWeight != bot.refined_weight or dynamicMargin != bot.dynamic_margin or downturnProtection != bot.downturn_protection:
             bot.name = name
             bot.margin = margin
             bot.refined_weight = refinedWeight
             bot.dynamic_margin = dynamicMargin
+            bot.downturn_protection = downturnProtection
             session["message"] = "Bot Config updated!"
             bot.update()
         if active != bot.active:
@@ -580,7 +577,7 @@ def botconfig(id):
                 credit = db.Credit([0,bot.user_id,bot.id,'',0,0,'PAUSE',int(time.time())])
                 credit.post()
         return redirect(url_for('home'))
-    return render_template("botconfig.html", form=form, id=bot.id)
+    return render_template("botconfig.html", form=form, id=bot.id, meta="Bot configuration")
 
 @app.route('/logout')
 def logout():
@@ -591,15 +588,15 @@ def logout():
 
 @app.route('/about')
 def about():
-    return render_template('about.html')
+    return render_template('about.html', meta="About BooF Bots")
     
 @app.route('/howto')
 def howto():
-    return render_template('howto.html')
+    return render_template('howto.html', meta="How to set up and use BooF Bots")
     
 @app.route('/terms')
 def terms():
-    return render_template('terms.html')
+    return render_template('terms.html', meta="BooF Terms and Conditions")
 
 @app.route('/verify/<uid>')
 def verify(uid):
@@ -607,7 +604,7 @@ def verify(uid):
     if not data:
         valr.logPost('Token altered!', '3')
         return abort(404)
-    token = db.getToken(uid)
+    token = db.getTokens(uid)
     if not token:
         valr.logPost(f'Fake Token Used!<br> Submitted token: {uid}', '3')
         return abort(404)
@@ -628,7 +625,7 @@ def verify(uid):
         message = db.Message([0,user.id,"INFO","Your account has successfully been verified!"])
         message.post()
         token.delete()
-        return render_template("verify.html", type="VERIFY", user=user.name)
+        return render_template("verify.html", type="VERIFY", user=user.name, meta="BooF Verification")
     elif token.type == "RESET":
         newPassword = shortuuid.ShortUUID().random(8)
         user.password = newPassword
@@ -636,7 +633,7 @@ def verify(uid):
         message = db.Message([0, user.id,"WARNING","Your password has been reset, change your password ASAP!"])
         message.post()
         token.delete()
-        return render_template("verify.html", user=user.name, type="RESET", password=newPassword)
+        return render_template("verify.html", user=user.name, type="RESET", password=newPassword, meta="BooF Verification")
     return abort(404)
 
 @app.route('/config', methods=["GET","POST"])
@@ -666,7 +663,7 @@ def config():
 
         return redirect(url_for('home'))
 
-    return render_template("config.html", form=form, verified=verified)
+    return render_template("config.html", form=form, verified=verified, meta="BooF User Configuration")
 
 @app.route('/resend')
 def resend():
@@ -692,19 +689,22 @@ def market():
     for line in valrConfig.ZAR:
         zarTrend += line["trend"]
         zarRSI += line["rsi"]
-    zarTrend = ((zarTrend/len(valrConfig.ZAR))+((zarRSI/len(valrConfig.ZAR))/50))/2
+    zarTrend = ((zarTrend/len(valrConfig.ZAR))+(((zarRSI/len(valrConfig.ZAR))/100)+.5))/2
+    #zarTrend = ((zarTrend/len(valrConfig.ZAR))+((zarRSI/len(valrConfig.ZAR))/50))/2
     usdcTrend = 0
     usdcRSI = 0
     for line in valrConfig.USDC:
         usdcTrend += line["trend"]
         usdcRSI += line["rsi"]
-    usdcTrend = ((usdcTrend/len(valrConfig.USDC))+((usdcRSI/len(valrConfig.USDC))/50))/2
+    usdcTrend = ((usdcTrend/len(valrConfig.USDC))+(((usdcRSI/len(valrConfig.USDC))/100)+.5))/2
+    #usdcTrend = ((usdcTrend/len(valrConfig.USDC))+((usdcRSI/len(valrConfig.USDC))/50))/2
     usdtTrend = 0
     usdtRSI = 0
     for line in valrConfig.USDT:
         usdtTrend += line["trend"]
         usdtRSI += line["rsi"]
-    usdtTrend = ((usdtTrend/len(valrConfig.USDT))+((usdtRSI/len(valrConfig.USDT))/50))/2
+    usdtTrend = ((usdtTrend/len(valrConfig.USDT))+(((usdtRSI/len(valrConfig.USDT))/100)+.5))/2
+    #usdtTrend = ((usdtTrend/len(valrConfig.USDT))+((usdtRSI/len(valrConfig.USDT))/50))/2
     details={
         "ZARList":valrConfig.ZAR,
         "ZARTrend":trunc(zarTrend,2),
@@ -713,7 +713,7 @@ def market():
         "USDTList":valrConfig.USDT,
         "USDTTrend":trunc(usdtTrend,2),
     }
-    return render_template("market.html", details=details)
+    return render_template("market.html", details=details, meta="Crypto Market Analysis")
 
 @app.route('/addbot', methods=["POST","GET"])
 def addbot():
@@ -745,7 +745,7 @@ def addbot():
             message = db.Message([0, session["id"], "INFO", "Success! New bot created!"])
             message.post()
         return redirect(url_for('home'))
-    return render_template('addbot.html', form=form)
+    return render_template('addbot.html', form=form, meta="Add Bot")
 
 @app.route('/buy')
 def buy():
@@ -755,7 +755,9 @@ def buy():
         session.pop('id', default=None)
         session["error"] = "Stop that!"
         return redirect(url_for('login'))
-    return render_template('buy.html')
+    config = valr.Config()
+    config.loadState()
+    return render_template('buy.html', paypalClientId=config.paypalKey, meta="Buy Credits for BooF Bots")
 
 @app.route('/reset', methods=["GET","POST"])
 def reset():
@@ -767,7 +769,7 @@ def reset():
         session["message"]="Reset email has been sent, please check your email for futher instructions."
         valr.logPost(f"Password Reset Requested for {user.email}, ID:{user.id}",'1')
         return redirect(url_for("login"))
-    return render_template('reset.html', form=form)
+    return render_template('reset.html', form=form, meta="Password Reset")
 
 @app.route('/clear/<id>')
 def clear(id):
@@ -801,7 +803,7 @@ def delete(id):
         session["error"] = "Stop that!"
         return redirect(url_for('login'))
 
-    return render_template('delete.html', name=bot.name, id=bot.id)
+    return render_template('delete.html', name=bot.name, id=bot.id, meta="Remove Bot")
 
 @app.route('/deletebot/id')
 def deleteBot(id):
@@ -834,7 +836,7 @@ def close():
         session.pop('id', default=None)
         session["error"] = "Stop that!"
         return redirect(url_for('login'))
-    return render_template('close.html')
+    return render_template('close.html', meta="Close user account")
 
 @app.route('/closeaccount')
 def closeAccount():
@@ -864,8 +866,9 @@ def closeAccount():
 
 @app.errorhandler(404)
 def pageNotFound(e):
-    return render_template('404.html'), 404
+    return render_template('404.html', meta="Page not Found"), 404
 
 if __name__ == "__main__": 
     db.setupDB()
+
     app.run(debug=True, port="5005", host="192.168.10.100")

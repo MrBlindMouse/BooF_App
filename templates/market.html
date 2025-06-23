@@ -7,11 +7,11 @@
     <p style="text-align:center;">Average ZAR pairs Trend: {{ details.ZARTrend }}</p><br>
     <table>
         <tr>
-            <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">Min Trade</th>
+            <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">ATR%</th><th style="min-width:60px">Min Trade</th>
         </tr>
         {% for line in details.ZARList %}
         <tr>
-            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend }}</td><td>{{ line.rsi }}</td><td>{{ line.votality }}</td><td>R{{ line.minTrade|round(2) }}&nbsp;</td>
+            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend }}</td><td>{{ line.rsi }}</td><td>{{ line.volatility }}</td><td>{{ (line.atr*100)|round(1) }}%</td><td>R{{ line.minTrade|round(2) }}&nbsp;</td>
         </tr>
         {% endfor %}
     </table>
@@ -21,11 +21,11 @@
     <p style="text-align:center;">Average USDC pairs Trend: {{ details.USDCTrend }}</p><br>
     <table>
         <tr>
-            <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">Min Trade</th>
+            <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">ATR%</th><th style="min-width:60px">Min Trade</th>
         </tr>
         {% for line in details.USDCList %}
         <tr>
-            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend }}</td><td>{{ line.rsi }}</td><td>{{ line.votality }}</td><td>${{ line.minTrade|round(2) }}&nbsp;</td>
+            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend }}</td><td>{{ line.rsi }}</td><td>{{ line.volatility }}</td><td>{{ (line.atr*100)|round(1) }}%</td><td>${{ line.minTrade|round(2) }}&nbsp;</td>
         </tr>
         {% endfor %}
     </table>
@@ -35,27 +35,21 @@
     <p style="text-align:center;">Average USDT pairs Trend: {{ details.USDTTrend }}</p><br>
     <table>
         <tr>
-            <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">Min Trade</th>
+            <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">ATR%</th><th style="min-width:60px">Min Trade</th>
         </tr>
         {% for line in details.USDTList %}
         <tr>
-            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend }}</td><td>{{ line.rsi }}</td><td>{{ line.votality }}</td><td>${{ line.minTrade|round(2) }}</td>
+            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend }}</td><td>{{ line.rsi }}</td><td>{{ line.volatility }}</td><td>{{ (line.atr*100)|round(1) }}%</td><td>${{ line.minTrade|round(2) }}</td>
         </tr>
         {% endfor %}
     </table>
     </div><br>
     <div>
         <h3>Explanation:</h3>
-        <p>Trend is the short-term average market price compared to the long-term average market price of a trading pair.</p>
-        <p>Specifically, it’s the 14-day SMA divided by the 60-day SMA, normalized around 1. A value above 1 indicates an uptrend, and below 1 indicates a downtrend.</p><br>
-        <p>RSI is the <a href="https://www.investopedia.com/terms/r/rsi.asp" target="_blank">Relative Strength Index</a> of a trading pair.</p>
-        <p>A value of 50 is neutral, 70 or above indicates overbought conditions, and 30 or below indicates oversold conditions. When RSI reaches these overbought or oversold levels, the trend is likely to reverse.</p><br>
-        <p><a href="https://www.investopedia.com/terms/b/beta.asp" target="_blank">Beta</a> is the relative volatility of a trading pair compared to an index.</p>
-        <p>In this case, the index is the grouping (ZAR, USDC, USDT). A beta of 0 or negative suggests low or inverse correlation with the broader index, 1 indicates the volatility matches the average and higher is more volatile.</p><br>
-        <hr>
-        <p>Its suggested that the dynamic margin and refined weights be applied only when there is enough equity for all the currencies in a grouping to be bought, and margin is set above 5%.</p><br>
-        <p>Refined weighting is applied to the bot's tickers collectively. During market downtrends, the weighting strategy shifts to favor cash positions, while in sideways or upward-trending markets, it aims to maintain the highest possible level of investment. In contrast, individual weighting follows a momentum-based approach, which operates counter to the principles of a mean reversion strategy and can lead to suboptimal or misleading signals from the bots.</p><br>
-        <p>Dynamic margin's purpose is to maximise profits on volitile tickers and increase trades on the less volitile. Limiting the influence to 20% keeps the bot's core strategy intact while increasing profits.</p>
+        <p><b>Trend</b> is the short-term average market price compared to the long-term average market price of a trading pair. Specifically, it’s the 14-day WMA divided by the 60-day SMA. A value above 1 indicates an uptrend, and below 1 indicates a downtrend.</p>
+        <p><b>RSI</b> is the <a href="https://www.investopedia.com/terms/r/rsi.asp" target="_blank">Relative Strength Index</a> of a trading pair. A value of 50 is neutral with above 50 a uptrend, and below a downtrend.</p>
+        <p><b><a href="https://www.investopedia.com/terms/b/beta.asp" target="_blank">Beta</a></b> is the relative volatility of a trading pair compared to an index. In this case, the index is the grouping (ZAR, USDC, USDT). A low or negative beta suggests an unrelated or inverse correlation with the broader index, 1 indicates the volatility matches the average and higher is more volatile.</p>
+        <p>And lastly <b>ATR%</b> is the <a href="https://www.investopedia.com/terms/a/atr.asp" target="_blank">Average True Range</a> divided by the 60-day SMA. This gives the average daily movement of a ticker compared to its price.</p>
     </div>
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>

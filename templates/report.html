@@ -12,10 +12,17 @@
     <p>Current Equity: {{ data.equity|round(2) }} {{ data.currency }}</p>
     <p>Active Accounts: {{ data.accounts|length }}</p>
     <p>Trade Margin: {{ data.margin }}%</p><br>
+    <p>Balance Amount: {{ data.balance|round(2) }} {{ data.currency }}</p>
+    <p>Market Trend: {{ data.trend|round(3) }}</p>
+    {% if data.weightedBalance != 0 %}
+    <p>Weighted Balance: {{ data.weightedBalance|round(2) }} {{ data.currency }}</p>
+    {% endif %}
+    <br>
     <p>Bot activity per account:</p>
     {% for account in data.accounts %}
-    <p>Account: <b>{{ account.base }}</b></p>
+    <p><b>{{ account.base }}</b></p>
     <p>&emsp;Current Volume: {{ account.volume|round(8) }}</p>
+    <p>&emsp;Current Price: {{ account.price|round(4) }} {{ data.currency }}</p>
     <p>&emsp;Current swing: {{ (account.swing*100)|round(1) }}% {{ account.direction }}</p>
     {% if account.stake != 0 %}
     <p>&emsp;Staked amount: {{ account.stake }}</p>
@@ -23,17 +30,17 @@
     <br>
     <p>&emsp;Volume Bought: {{ account.volumeBought|round(8) }}</p>
     <p>&emsp;Value Bought: {{ account.valueBought|round(2) }} {{ data.currency }}</p>
-    <p>&emsp;Average Buy Price: {{ account.avgBuyPrice|round(3) }} {{ data.currency }}</p><br>
+    <p>&emsp;Average Buy Price: {{ account.avgBuyPrice|round(4) }} {{ data.currency }}</p><br>
     <p>&emsp;Volume Sold: {{ account.volumeSold|round(8) }}</p>
     <p>&emsp;Value Sold: {{ account.valueSold|round(2) }} {{ data.currency }}</p>
-    <p>&emsp;Average Sell Price: {{ account.avgSellPrice|round(3) }} {{ data.currency }}</p><br>
+    <p>&emsp;Average Sell Price: {{ account.avgSellPrice|round(4) }} {{ data.currency }}</p><br>
     {% if [account.volumeBought,account.volumeSold]|min() > 0 %}
-    <p>&emsp;Profit per volume: {{ (account.avgSellPrice-account.avgBuyPrice)|round(3) }} {{ data.currency }}</p>
+    <p>&emsp;Profit per volume: {{ (account.avgSellPrice-account.avgBuyPrice)|round(4) }} {{ data.currency }}</p>
     {% else %}
     <p>&emsp;Profit per volume: 0 {{ data.currency }}</p>
     {% endif %}
     <p>&emsp;Minimum Trade Volume: {{ [account.volumeBought,account.volumeSold]|min()|round(8) }}</p>
-    <p>&emsp;Realized Profit: {{ (([account.volumeBought,account.volumeSold]|min())*(account.avgSellPrice-account.avgBuyPrice))|round(2) }} {{ data.currency }}</p><br><br>
+    <p>&emsp;Realized Profit: {{ (([account.volumeBought,account.volumeSold]|min())*(account.avgSellPrice-account.avgBuyPrice))|round(3) }} {{ data.currency }}</p><br><br>
     {% endfor %}
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>

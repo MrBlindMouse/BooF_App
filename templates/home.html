@@ -39,7 +39,12 @@
                 if (data.status){
                     document.getElementById('bot_'+id+'_status').innerHTML = "Running . . .";
                 }else{
-                    document.getElementById('bot_'+id+'_status').innerHTML = "Paused";
+                    document.getElementById('bot_'+id+'_sub').style.backgroundColor = 'rgba(255, 255, 224, 0.9)';
+                    if (data.downturnProtection){
+                        document.getElementById('bot_'+id+'_status').innerHTML = "Paused by <b>Downturn Protection</b>";
+                    }else{
+                        document.getElementById('bot_'+id+'_status').innerHTML = "Paused";
+                    }
                 }
                 document.getElementById('bot_'+id+'_equity').innerHTML = String(Math.round(data.equity*100)/100)+" "+String(data.currency).toUpperCase();
                 if (data.transaction.type=="BUY"){
@@ -53,7 +58,7 @@
                 }
                 document.getElementById('bot_'+id+'_highswing').innerHTML = String(data.accountDetails.high_account).toUpperCase()+" ~ "+String(data.accountDetails.high_swing)+"%"
                 document.getElementById('bot_'+id+'_lowswing').innerHTML = String(data.accountDetails.low_account).toUpperCase()+" ~ "+String(data.accountDetails.low_swing)+"%"
-                document.getElementById('bot_'+id+'_profit').innerHTML = String(Math.round(data.profit*100)/100)+"("+String(Math.round(data.realizedProfit*100)/100)+") "+String(data.currency).toUpperCase()
+                document.getElementById('bot_'+id+'_profit').innerHTML = String(Math.round(data.profit*100)/100)+"("+String(Math.round(data.realizedProfit*1000)/1000)+") "+String(data.currency).toUpperCase()
                 const chartData = {
                     labels: data.chartDates,
                     datasets:[{
@@ -73,7 +78,7 @@
 {% if bots %}
     {% for botID in bots %}
     <br>
-    <div class="sub">
+    <div class="sub" id='bot_{{ botID }}_sub'>
         <h2><span id='bot_{{ botID }}_name'></span>&emsp;</h2>
         <hr>
         <table>

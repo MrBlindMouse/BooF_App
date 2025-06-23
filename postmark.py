@@ -18,8 +18,9 @@ def sendMail(token, content, subject, recipient = "admin@bmd-studios.com", sende
         "MessageStream": "outbound"
     }
     result = requests.post(url=url, headers=header, json=payload)
-    print(result.reason)
-    print(result.content)
+    if result.status_code != 200:
+        print(result.reason)
+        print(result.content)
 
 
 

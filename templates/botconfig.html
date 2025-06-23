@@ -9,10 +9,10 @@
                     <td>{{ form.name.label }}: </td><td style="text-align: left;">{{ form.name }}</td>
                 </tr>
                 <tr>
-                    <td>{{ form.currency.label }}: </td><td style="text-align: left;">{{ form.currency }}</td>
+                    <td>{{ form.currency.label }}*: </td><td style="text-align: left;">{{ form.currency }}</td>
                 </tr>
                 <tr>
-                    <td>{{ form.margin.label }}: </td><td style="text-align: left;">{{ form.margin }}%</td>
+                    <td>{{ form.margin.label }}**: </td><td style="text-align: left;">{{ form.margin }}%</td>
                 </tr>
                 <tr>
                     <td>{{ form.refinedWeight.label }}: </td><td style="text-align: left;">{{ form.refinedWeight }}</td>
@@ -21,15 +21,18 @@
                     <td>{{ form.dynamicMargin.label }}: </td><td style="text-align: left;">{{ form.dynamicMargin }}</td>
                 </tr>
                 <tr>
+                    <td>{{ form.downturnProtection.label }}: </td><td style="text-align: left;">{{ form.downturnProtection }}</td>
+                </tr>
+                <tr>
                     <td>{{ form.active.label }}: </td><td style="text-align: left;">{{ form.active }}</td>
                 </tr>
             </table>
             {{ form.submit }}
         </form><br>
     </div>
-    <p><b>Note:</b></p>
-    <p>Changing the bot's currency will sell every position before buying the relevant positions for the new currency.</p>
-    <p>The bot calculates the maximum positions viable based on the minimum trade values, margin and total equity of the bot. Changing the margin may force the bot to open or close a new postion, affection the buy and sell pattern previously established, and may cause bad trades for a period of time.</p>
+    <p><b>Notes:</b></p>
+    <p>* Changing the bot's currency will sell every position before buying the relevant positions for the new currency.</p>
+    <p>** The bot calculates the maximum positions viable based on the minimum trade values, margin and total equity of the bot. Changing the margin may force the bot to open or close a new postion, affection the buy and sell pattern previously established, and may cause bad trades for a period of time.</p>
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
         <a class="button" href="{{ url_for('clear',id=id) }}">~ Clear Transactions ~</a>
