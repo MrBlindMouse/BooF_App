@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /home
+Sitemap: https://www.boof-bots.com/sitemap.xml

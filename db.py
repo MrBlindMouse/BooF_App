@@ -47,7 +47,7 @@ def setupDB():
             "volume":"FLOAT NOT NULL",
             "stake":"FLOAT DEFAULT 0",
             "swing":"FLOAT NOT NULL",
-            "direction":"TEXT DEFAULT 'NEUTRAL"
+            "direction":"TEXT DEFAULT 'UP'"
             }},
         {"table_name":"transaction_table",
         "table_columns":{
@@ -86,15 +86,6 @@ def setupDB():
             "user_id":"INTEGER DEFAULT 0",
             "type":"TEXT NOT NULL DEFAULT 'VERIFY'",
             "period":"FLOAT NOT NULL DEFAULT 24"
-        }},
-        {"table_name":"plan_table",
-        "table_columns":{
-            "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
-            
-        }},
-        {"table_name":"subscription_table",
-        "table_columns":{
-            "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
         }}
             ]
     

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort, send_from_directory
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, BooleanField, PasswordField, HiddenField, SelectField, IntegerField, RadioField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, NumberRange
@@ -9,7 +9,7 @@ import shortuuid
 
 import db, valr, postmark, paypal
 
-app = Flask("BooF")
+app = Flask("BooF", static_folder='static')
 envConfig = dotenv_values(".env")
 app.config["SECRET_KEY"] = envConfig["APP_SECRET"]
 app.config['PERMANENT_SESSION_LIFETIME'] = 604800
@@ -272,6 +272,10 @@ def home():
 
     #Loading User data  
     userData = db.getUsers(id=session["id"])
+    if not userData:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
     credits = db.getCredits(user_id=userData.id)
     user={
         "name":userData.name,
@@ -646,6 +650,11 @@ def config():
         return redirect(url_for('login'))
 
     user = db.getUsers(id=session["id"])
+    if not user:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+
     form = profileForm(user)
     verified = True if user.verified == 1 else False
 
@@ -867,6 +876,11 @@ def closeAccount():
 @app.errorhandler(404)
 def pageNotFound(e):
     return render_template('404.html', meta="Page not Found"), 404
+
+@app.route('/robots.txt')
+@app.route('/sitemap.xml')
+def static_from_root():
+    return send_from_directory(app.static_folder, request.path[1:])
 
 if __name__ == "__main__": 
     db.setupDB()
