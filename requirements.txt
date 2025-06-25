@@ -7,3 +7,4 @@ requests-ratelimiter
 python-dotenv
 schedule
 shortuuid
+gunicorn

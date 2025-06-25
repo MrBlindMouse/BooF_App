@@ -5,6 +5,16 @@ import db
 envConfig = dotenv_values(".env")
 baseURL = "https://api-m.paypal.com" if envConfig["PAYPAL_MODE"] == "LIVE" else "https://api-m.sandbox.paypal.com"
 
+#Active Funstions
+
+def createOrder():
+    pass
+
+def captureOrder():
+    pass
+
+#Setup Functions
+
 def getAccessToken(id, secret):
     token = db.getTokens(type="PAYPAL")
     ts = int(time.time())
@@ -113,7 +123,6 @@ def checkPlans(token=db.Token):
                 json.dump(planList, file, indent=4)
     else:
         raise("Product List file missing(product_list.json)")
-
 
 def createPlan(planFile, token=db.Token):
     print(f"Creating plan: {planFile["name"]}")
@@ -256,7 +265,8 @@ def checkProducts(token=db.Token):
     else:
         raise("Product List file missing(product_list.json)")
 
-def setup(token=db.Token):
+def setupPaypal():
+    token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
     
     product_list = None
     with open("product_list.json", "r") as file:
@@ -272,6 +282,5 @@ def setup(token=db.Token):
         print("Subscription Plan list empty")
 
 if __name__ == "__main__":
-    token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
-    setup(token)
+    setupPaypal()
 

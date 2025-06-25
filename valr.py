@@ -4,7 +4,7 @@ from requests.packages.urllib3.util.retry import Retry
 from requests_ratelimiter import LimiterSession
 import hashlib, hmac
 from dotenv import dotenv_values
-import schedule
+import schedule, threading
 import datetime, json, pickle, os, sys, traceback, time, datetime, math
 
 import db, postmark
@@ -74,6 +74,7 @@ class Config():
         self.forbidden = []
         self.stake = []
         self.postmarkKey = ""
+        self.botTimer = 1
 
     def updateEnv(self):
         """
@@ -87,7 +88,7 @@ class Config():
         self.paypalKey = config["PAYPAL_ID"]
         self.paypalSecret = config["PAYPAL_SECRET"]
     
-    def updateTickers(self, session):
+    def updateTickers(self, lock, session):
         """
         Updates the ticker list, including ticker trend, per quote currency.
         Checks downturn protection rules.
@@ -167,26 +168,29 @@ class Config():
             for key, value in enumerate(ZARlist):
                 ZARlist[key]["volatility"] = beta(session, value["base"], "ZAR", ZARBars)
             ZARlist.sort(key=sorting)
-            self.ZAR = ZARlist
                     
             for key, value in enumerate(USDClist):
                 USDClist[key]["volatility"] = beta(session, value["base"], "USDC", USDCBars)
             USDClist.sort(key=sorting)
-            self.USDC = USDClist
-                    
+
             for key, value in enumerate(USDTlist):
                 USDTlist[key]["volatility"] = beta(session, value["base"], "USDT", USDTBars)
             USDTlist.sort(key=sorting)
-            self.USDT = USDTlist
-            self.saveState()
+            
+            with lock:
+                printLog("Locking config, updating . . .", True)
+                self.ZAR.clear()
+                self.ZAR.extend(ZARlist)
+                self.USDC.clear()
+                self.USDC.extend(USDClist)
+                self.USDT.clear()
+                self.USDT.extend(USDTlist)
+                self.saveState()
+
         except Exception as e:
             printLog(e,True)
             logPost(f"During Update Tickers:{e}",'2')
-
-
-
-                
-                
+         
     def updatePrice(self, session):
         url = "https://api.valr.com/v1/public/marketsummary"
         detailsResult = session.get(url).json()
@@ -240,7 +244,8 @@ class Config():
                 "stake":self.stake,
                 "postmarkKey":self.postmarkKey,
                 "paypalKey":self.paypalKey,
-                "paypalSecret":self.paypalSecret
+                "paypalSecret":self.paypalSecret,
+                "botTimer":self.botTimer
 
             }, file)
 
@@ -253,13 +258,14 @@ class Config():
                 self.ZAR = state["ZAR"]
                 self.USDC = state["USDC"]
                 self.USDT = state["USDT"]
-                self.USDCZAR = state["USDCZAR"]
-                self.USDTZAR = state["USDTZAR"]
+                self.USDCZAR = float(state["USDCZAR"])
+                self.USDTZAR = float(state["USDTZAR"])
                 self.forbidden = state["forbidden"]
                 self.stake = state["stake"]
                 self.postmarkKey = state["postmarkKey"]
                 self.paypalKey = state["paypalKey"]
                 self.paypalSecret = state["paypalSecret"]
+                self.botTimer = float(state["botTimer"])
         else:
             printLog("State file not found", True)
             raise
@@ -440,7 +446,6 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
 
 
 def findTrend(session, pair):
-    printLog(f"Finding {pair} trend")
     answer={
         "trend":1,
         "rsi":50,
@@ -471,10 +476,10 @@ def findTrend(session, pair):
                 shortTerm = ((shortTerm*3) + float(line["close"]))/4
             #shortTerm = shortTerm/len(shortResult)
             
-            longTerm = 0
-            for line in result[:60]:
-                longTerm += float(line["close"])
-            longTerm = longTerm/len(result[:60])
+            longTerm = float(result[61]["close"])
+            for line in reversed(result[:60]):
+                longTerm = ((longTerm*13) + float(line["close"]))/14
+            #longTerm = longTerm/len(result[:60])
             answer["trend"]=trunc((shortTerm/longTerm),4)
 
             up = 0
@@ -674,7 +679,7 @@ def bmd_report(config=Config):
         "id":"01",
         "bot_name":"BooF",
         "ts":str(int(time.time())),
-        "status":config.valrStatus
+        "status":f"{config.valrStatus}({trunc(config.botTimer,2)})"
     }
     result = requests.post(url=url,json=payload)
     result.raise_for_status()
@@ -1709,26 +1714,48 @@ def checkUserCredits(config=Config):
 
 #Main Loops
 
-@bmd_logger
-def bot_loop(session, config=Config):
-    config.loadState()
-    config.updateEnv()
-    config.updatePrice(session)
-    config.saveState()
-    botLoop(config)
-    config.saveState()
-    bmd_report(config)
 
 @bmd_logger
-def admin_loop(config=Config):
-    printLog("Admin Loop . . .", True)
-    checkTokens()
-    checkUserReminders(config)
-    checkUserCredits(config)
+def user_loop(lock, session, config=Config):
+    if lock.acquire(blocking=False):
+        avgTimer=1
+        try:
+            startTime = time.perf_counter()
+
+            config.loadState()
+            config.updateEnv()
+            config.updatePrice(session)
+            config.saveState()
+            botLoop(config)
+
+            endTime = time.perf_counter()
+            timer = (endTime-startTime)
+            avgTimer = config.botTimer
+            config.botTimer = (avgTimer + timer)/2
+            config.saveState()
+            bmd_report(config)
+        finally:
+            lock.release()
+        printLog(f"Bot running({trunc(timer,3)}secs | avg {trunc(config.botTimer,3)}secs) . . .")
+    else:
+        printLog("Updating config, skipping bot loop", True)
 
 @bmd_logger
-def update_loop(session, config=Config):
-    config.updateTickers(session)
+def admin_loop(lock, config=Config):
+    if lock.acquire(blocking=False):
+        try:
+            printLog("Admin Loop . . .", True)
+            checkTokens()
+            checkUserReminders(config)
+            checkUserCredits(config)
+        finally:
+            lock.release()
+    else:
+        printLog("Updating config, skipping admin loop", True)
+
+@bmd_logger
+def update_loop(lock, session, config=Config):
+    config.updateTickers(lock, session)
 
     downturnStop = 0.9
     upturnStart = 0.98
@@ -1794,6 +1821,13 @@ def update_loop(session, config=Config):
 
     logPost(f"{reportString}<br>{ZARString}{USDCString}{USDTString}", '1')
 
+def thread_update_loop(lock, session, config=Config):
+    job_thread = threading.Thread(
+        target=update_loop,
+        args=(lock, session, config),
+        daemon = True
+    )
+    job_thread.start()
 
 externalSession = createSession(360) #For authenticated api data, ie. account data and trading
 
@@ -1804,6 +1838,8 @@ if __name__ == "__main__":
     running = "running"
 
     config = Config()
+    dataLock = threading.Lock()
+
     try:
         printLog("Loading config . . .", True)
         config.loadState()
@@ -1812,7 +1848,7 @@ if __name__ == "__main__":
         printLog("Failed Loading State . . .", True)
         config.updateEnv()
         config.saveState()
-        config.updateTickers(internalSession)
+        config.updateTickers(dataLock, internalSession)
         config.updatePrice(internalSession)
         config.saveState()
 
@@ -1822,26 +1858,33 @@ if __name__ == "__main__":
         update_loop(internalSession,config)
 
     else: #Main operation
-        schedule.every(30).seconds.do(bot_loop, session=internalSession, config=config)
+        
+        schedule.every(30).seconds.do(user_loop, lock=dataLock, session=internalSession, config=config)
 
-        schedule.every(1).hours.do(admin_loop, config=config)
+        schedule.every(1).hours.do(admin_loop, lock=dataLock, config=config)
 
-        schedule.every().day.at("03:00").do(update_loop, session=internalSession, config=config)
-        schedule.every().day.at("09:00").do(update_loop, session=internalSession, config=config)
-        schedule.every().day.at("15:00").do(update_loop, session=internalSession, config=config)
-        schedule.every().day.at("21:00").do(update_loop, session=internalSession, config=config)
+        schedule.every().day.at("03:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
+        schedule.every().day.at("09:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
+        schedule.every().day.at("15:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
+        schedule.every().day.at("21:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
 
         try:
             while True:
+                n = schedule.idle_seconds()
+                if n is None:
+                    break
+                elif n>0:
+                    time.sleep(n)
                 try:
-                    printLog("Running . . .")
                     config.checkVALR(internalSession)
+                    config.saveState()
                     if config.valrStatus == "online":
                         schedule.run_pending()
+                    else:
+                        logPost("Valr Status: Offline",'1')
                 except Exception as e:
                     msg = f"Error during main runtime:\n<br>{e}"
                     logPost(msg,'2')
-                time.sleep(1)
         except KeyboardInterrupt:
             printLog("Shutting down . . .", True)
             config.saveState()
