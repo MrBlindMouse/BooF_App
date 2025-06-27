@@ -8,7 +8,9 @@
             "image_url": "https://www.boof-bots.com/images/boof_logo.png",
             "home_url": "https://www.boof-bots.com",
             "id": "PROD-57L280042L611494H",
-            "price": 30
+            "price": 30,
+            "credits": 1,
+            "max_amount": 12
         },
         {
             "name": "Credit x13",
@@ -18,14 +20,16 @@
             "image_url": "https://www.boof-bots.com/images/boof_logo.png",
             "home_url": "https://www.boof-bots.com",
             "id": "PROD-512011653V0992049",
-            "price": 360
+            "price": 360,
+            "credits": 13,
+            "max_amount": 3
         }
     ],
     "plans": [
         {
             "product_id": "PROD-57L280042L611494H",
             "name": "BooF Bot Subscription",
-            "description": "4 Weekly subcription",
+            "description": "4-Week subcription plan",
             "status": "ACTIVE",
             "billing_cycles": [
                 {
@@ -49,7 +53,13 @@
                 "auto_bill_outstanding": true,
                 "payment_failure_threshold": 1
             },
-            "id": "P-56C7588014092131YNBNGO2Q"
+            "id": "P-56C7588014092131YNBNGO2Q",
+            "max_amount": 3
+        }
+    ],
+    "hooks": [
+        {
+            "id": "5KC75636DW061704L"
         }
     ]
 }

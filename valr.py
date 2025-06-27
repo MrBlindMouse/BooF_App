@@ -66,6 +66,7 @@ class Config():
     def __init__(self):
         self.valrStatus = "down"
         self.appSecret = None
+        self.verifySalt = None
         self.ZAR = []
         self.USDC = []
         self.USDT = []
@@ -87,6 +88,7 @@ class Config():
         self.postmarkKey = config["POSTMARK_KEY"]
         self.paypalKey = config["PAYPAL_ID"]
         self.paypalSecret = config["PAYPAL_SECRET"]
+        self.verifySalt = config["VERIFY_SALT"]
     
     def updateTickers(self, lock, session):
         """
@@ -235,6 +237,7 @@ class Config():
             pickle.dump({
                 "valrStatus":self.valrStatus,
                 "appSecret":self.appSecret,
+                "verifySalt":self.verifySalt,
                 "ZAR":self.ZAR,
                 "USDC":self.USDC,
                 "USDT":self.USDT,
@@ -255,6 +258,7 @@ class Config():
                 state = pickle.load(file)
                 self.valrStatus = state["valrStatus"]
                 self.appSecret = state["appSecret"]
+                self.verifySalt = state["verifySalt"]
                 self.ZAR = state["ZAR"]
                 self.USDC = state["USDC"]
                 self.USDT = state["USDT"]

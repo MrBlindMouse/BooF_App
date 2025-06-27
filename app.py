@@ -247,12 +247,12 @@ def signup():
         name = form.name.data
         email = form.email.data
         password = form.password.data
-        newUser = db.User([0, name, email, password, ts, 0])
+        newUser = db.User([0, name, email, password, False, []])
         newUser.post()
         user = db.getUsers(email=newUser.email)
-        bonus = db.Credit([0, user.id, 0, "", 0, 4, "BONUS", int(time.time())])
+        bonus = db.Credit([0, user.id, 0, "", 0, 1, "BONUS", int(time.time())])
         bonus.post()
-        userVerificationEmail(user)
+        #userVerificationEmail(user)
         message = db.Message([0, user.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
         message.post()
         session["message"] = "Signup Successful! Please log in using email and password"
@@ -766,7 +766,135 @@ def buy():
         return redirect(url_for('login'))
     config = valr.Config()
     config.loadState()
-    return render_template('buy.html', paypalClientId=config.paypalKey, meta="Buy Credits for BooF Bots")
+    products = paypal.findProducts()
+    plans = None
+    subscriptionDetails = None
+    subscription = db.getSubscriptions(user_id=session["id"])
+    if not subscription:
+        plans = paypal.findSubscriptions()
+        plans["custom_id"] = f"userID_{session["id"]}"
+    else:
+        subscriptionPlan = paypal.findSubscriptions()
+        subscriptionDetails = {
+            "name": subscriptionPlan[0]["name"],
+            "status": subscription.status,
+            "quantity": subscription.quantity,
+            "price": float(subscriptionPlan[0]["billing_cycles"][0]["pricing_scheme"]["fixed_price"]["value"])*int(subscription.quantity),
+            "planPrice": subscriptionPlan[0]["billing_cycles"][0]["pricing_scheme"]["fixed_price"]["value"],
+            "planAmount": subscriptionPlan[0]["max_amount"],
+        }
+    credits = db.getCredits(user_id=session["id"], type="LIST")
+    creditList = []
+    ts = int(time.time())
+    for credit in credits:
+        if credit.description in ["CREDIT","BONUS"] and (credit.ts+(90*24*60*60))>ts:
+            item = {
+                "ts":credit.ts,
+                "type":str(credit.description),
+                "volume":credit.volume,
+                "value":credit.value
+            }
+            creditList.append(item)
+
+    
+    return render_template('buy.html', creditList=creditList, productList=products, subscriptionList=plans, subscriptionDetails=subscriptionDetails, paypalClientId=config.paypalKey, meta="Buy Credits for BooF Bots")
+
+@app.route('/create-order', methods=["POST"])
+def create_order():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    data = request.json
+    print("Create Order:")
+    print(json.dumps(data, indent=4))
+    paypalResponse = paypal.createOrder(data["product_id"], data["amount"], session["id"])
+    return jsonify({"id":paypalResponse["id"]})
+    
+@app.route('/capture-order', methods=["POST"])
+def capture_order():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    data = request.json
+    print("Capture Order:")
+    print(json.dumps(data, indent=4))
+    paypalResponse = paypal.captureOrder(data, session["id"])
+    return jsonify({"status":paypalResponse})
+    
+@app.route('/capture-subscription', methods=["POST"])
+def capture_subscription():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    data = request.json
+    print("Capture subscription:")
+    print(json.dumps(data, indent=4))
+
+    paypalResponse = paypal.captureSubsription(data, session["id"])
+    return jsonify({"status":paypalResponse})
+
+@app.route('/suspend-subscription', methods=["POST"])
+def suspend_subscription():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    data = request.json
+    print(json.dumps(data, indent=4))
+    subscription = db.getSubscriptions(user_id=session["id"])
+    action = paypal.suspendSubscription(subscription.subscription_id, data["reason"])
+    if action == "SUCCESS":
+        subscription.status = "SUSPENDED"
+        subscription.update()
+        message = db.Message([0,session["id"],'INFO','Your Subscription plan was successfully suspended.'])
+        message.post()
+    return jsonify({"status":action})
+   
+@app.route('/cancel-subscription', methods=["POST"])
+def cancel_subscription():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    data = request.json
+    print(json.dumps(data, indent=4))
+    subscription = db.getSubscriptions(user_id=session["id"])
+    action = paypal.cancelSubscription(subscription.subscription_id, data["reason"])
+    if action == "SUCCESS":
+        subscription.delete()
+        message = db.Message([0,session["id"],'INFO','Your Subscription plan was successfully cancelled.'])
+        message.post()
+    return jsonify({"status":action}) 
+
+@app.route('/activate-subscription', methods=["POST"])
+def activate_subscription():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    subscription = db.getSubscriptions(user_id=session["id"])
+    action = paypal.activateSubscription(subscription.subscription_id)
+    if action == "SUCCESS":
+        subscription.status = "ACTIVE"
+        subscription.update()
+        message = db.Message([0,session["id"],'INFO','Your Subscription plan was successfully re-activated.'])
+        message.post()
+    return jsonify({"status":action})
 
 @app.route('/reset', methods=["GET","POST"])
 def reset():
@@ -882,7 +1010,27 @@ def pageNotFound(e):
 def static_from_root():
     return send_from_directory(app.static_folder, request.path[1:])
 
+@app.route('/hook', methods=["POST"])
+def hook():
+    header = request.headers
+    data = request.json
+    action = paypal.verifyHook(data, header)
+    if action == "SUCCESS":
+        dataString = json.dumps(data, indent=4)
+        msg=f"Paypal webhook<br>{dataString.replace('\n','<br>')}"
+        valr.logPost(msg,'1')
+    else:
+        dataString = json.dumps(data, indent=4)
+        msg=f"Paypal failed webhook<br>{dataString.replace('\n','<br>')}"
+        valr.logPost(msg,'2')
+
+    return jsonify({"status":action})
+
+@app.template_filter('date')
+def tsConvert(s):
+    return time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime(s))
+
 if __name__ == "__main__": 
-    db.setupDB()
+    print("Dev Server!")
 
     app.run(debug=True, port="5005", host="192.168.10.100")

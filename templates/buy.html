@@ -1,25 +1,340 @@
 {% extends 'base.html' %}
 {% block content %}
-<script src="https://www.paypal.com/sdk/js?client-id={{ paypalClientId }}&currency=USD&debug=true"></script>
-<div class="sub">
+
+<div class="sub" style="text-align:center;">
     <h2>Buy Credits</h2>
-    <div id="paypal-button-1"></div>
-    <script>
-        paypal.Buttons({
-            async response = await fetch("{{ url_for() }}")
-            style:{
-                layout:'vertical',
-                color:'blue',
-                borderRadius:15,
-                label:'buynow'
-            },
-            message:{
-                amount:9
-            }
-        }).render('#paypal-button-1')
-    </script>
+    <div>
+        <script src="https://www.paypal.com/sdk/js?client-id={{ paypalClientId }}&currency=USD&debug=true&vault=true"></script>
+        {% for product in productList %}
+        <div class="product-wrapper">
+            <h3>{{ product.name }}</h3>
+            <div class="paypal-container">
+                <div id="paypal-button-{{ product.id }}"></div>
+            </div>
+            <p>{{ product.description }}</p><br>
+            {% if product.max_amount > 0 %}
+            <p><b>Price: $<span id="amount-price_{{ product.id|replace('-','_')|safe }}">{{ product.price|int }}</span></b></p>
+            <label for="slider_{{ product.id|replace('-','_')|safe }}">Select Amount: <span id="display_{{ product.id|replace('-','_')|safe }}">1</span></label>
+            <input type="range" id="slider_{{ product.id|replace('-','_')|safe }}" class="product-amount-slider" min="1" max="{{ product.max_amount }}" step="1" value="1">
+            <script>
+                const amountSlider_{{ product.id|replace('-','_')|safe }} = document.getElementById("slider_{{ product.id|replace('-','_')|safe }}");
+                const amountDisplay_{{ product.id|replace('-','_')|safe }} = document.getElementById("display_{{ product.id|replace('-','_')|safe }}");
+                amountSlider_{{ product.id|replace('-','_')|safe }}.addEventListener('input', function(){
+                    amountDisplay_{{ product.id|replace('-','_')|safe }}.textContent = parseFloat(amountSlider_{{ product.id|replace('-','_')|safe }}.value).toFixed(0);
+                    document.getElementById("amount-price_{{ product.id|replace('-','_')|safe }}").textContent = parseFloat(amountSlider_{{ product.id|replace('-','_')|safe }}.value).toFixed(0)*{{ product.price|int }};
+                })
+                paypal.Buttons({
+                    style:{
+                        color:'gold',
+                        shape:'pill',
+                        label:'buynow'
+                    },
+                    createOrder: function(data, actions){
+                        const amount = parseFloat(amountSlider_{{ product.id|replace('-','_')|safe }}.value).toFixed(0)
+                        return fetch("{{ url_for('create_order') }}",{
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({product_id:'{{ product.id }}',amount:amount})
+                        })
+                        .then(response => response.json())
+                        .then(order => order.id);
+                    },
+                    onApprove: function(data, actions){
+                        return fetch("{{ url_for('capture_order') }}",{
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({orderID: data.orderID, productID:'{{ product.id }}' })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "COMPLETED"){
+                                window.location.href = "{{ url_for('home') }}";
+                            }else{
+                                alert('Payment failed');
+                            }
+                        });
+                    }
+                }).render('#paypal-button-{{ product.id }}')
+            </script>
+            {% else %}
+            <p><b>Price: ${{ product.price }}</b></p>
+            <script>
+                paypal.Buttons({
+                    style:{
+                        color:'gold',
+                        shape:'pill',
+                        label:'buynow'
+                    },
+                    createOrder: function(data, actions){
+                        const amount = 1
+                        return fetch("{{ url_for('create_order') }}",{
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({product_id:'{{ product.id }}',amount:amount})
+                        })
+                        .then(response => response.json())
+                        .then(order => order.id);
+                    },
+                    onApprove: function(data, actions){
+                        return fetch("{{ url_for('capture_order') }}",{
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({orderID: data.orderID, productID:'{{ product.id }}' })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "COMPLETED"){
+                                window.location.href = "{{ url_for('home') }}";
+                            }else{
+                                alert('Payment failed');
+                            }
+                        });
+                    }
+                }).render('#paypal-button-{{ product.id }}')
+            </script>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if subscriptionList %}
+
+    <div>
+        {% for plan in subscriptionList %}
+        <div class="product-wrapper">
+            <h3>{{ plan.name }}</h3>
+            <div class="paypal-container">
+                <div id="paypal-button-{{ plan.id }}"></div>
+            </div>
+            <p>{{ plan.description }}</p><br>
+            {% if plan.max_amount > 0 %}
+            <p><b>Price: $<span id="amount-price_{{ plan.id|replace('-','_')|safe }}">{{ plan.billing_cycles[0].pricing_scheme.fixed_price.value|int }}</span></b></p>
+            <label for="slider_{{ plan.id|replace('-','_')|safe }}">Select Amount: <span id="display_{{ plan.id|replace('-','_')|safe }}">1</span></label>
+            <input type="range" id="slider_{{ plan.id|replace('-','_')|safe }}" class="product-amount-slider" min="1" max="{{ plan.max_amount }}" step="1" value="1">
+            <script>
+                const amountSlider_{{ plan.id|replace('-','_')|safe }} = document.getElementById("slider_{{ plan.id|replace('-','_')|safe }}");
+                const amountDisplay_{{ plan.id|replace('-','_')|safe }} = document.getElementById("display_{{ plan.id|replace('-','_')|safe }}");
+                amountSlider_{{ plan.id|replace('-','_')|safe }}.addEventListener('input', function(){
+                    amountDisplay_{{ plan.id|replace('-','_')|safe }}.textContent = parseFloat(amountSlider_{{ plan.id|replace('-','_')|safe }}.value).toFixed(0);
+                    document.getElementById("amount-price_{{ plan.id|replace('-','_')|safe }}").textContent = parseFloat(amountSlider_{{ plan.id|replace('-','_')|safe }}.value).toFixed(0)*{{ plan.billing_cycles[0].pricing_scheme.fixed_price.value|int }};
+                })
+                
+                paypal.Buttons({
+                    style:{
+                        color:'blue',
+                        shape:'pill'
+                    },
+                    createSubscription: function(data, actions){
+                        const amount = amountSlider_{{ plan.id|replace('-','_')|safe }}.value;
+                        const planID = "{{ plan.id|safe }}";
+                        return actions.subscription.create({
+                            "plan_id": planID,
+                            "quantity": amount,
+                            "custom_id":'{{ plan.custom_id|safe }}'
+                        })
+                    },
+                    onApprove: function(data, actions){
+                        return fetch("{{ url_for('capture_subscription') }}",{
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({planID: data.subscriptionID})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "ACTIVE"){
+                                window.location.href = "{{ url_for('home') }}";
+                            }else{
+                                alert('Subscription failed');
+                            }
+                        });
+                    }
+                }).render('#paypal-button-{{ plan.id }}')
+            </script>
+            {% else %}
+            <p><b>Price: ${{ plan.billing_cycles[0].pricing_scheme.fixed_price.value|int }}</p>
+            <script>
+                paypal.Buttons({
+                    style:{
+                        color:'blue',
+                        shape:'pill'
+                    },
+                    createSubscription: function(data, actions){
+                        const amount = 1;
+                        const planID = "{{ plan.id|safe }}";
+                        return actions.subscription.create({
+                            "plan_id": planID,
+                            "quantity": amount
+                        })
+                    },
+                    onApprove: function(data, actions){
+                        return fetch("{{ url_for('capture_subscription') }}",{
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({planID: data.id})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "ACTIVE"){
+                                window.location.href = "{{ url_for('home') }}";
+                            }else{
+                                alert('Subscription failed');
+                            }
+                        });
+                    }
+                }).render('#paypal-button-{{ plan.id }}')
+            </script>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+
+    <h2>Subscription Details:</h2>
+    <div class="product-wrapper">
+        <p>Status: <b>{{ subscriptionDetails.status }}</b></p>
+        <p>Quantity: <b>{{ subscriptionDetails.quantity }}x Credit</b></p>
+        <p>Price: <b>${{ subscriptionDetails.price }}</b></p>
+        {% if subscriptionDetails.status == "ACTIVE" %}
+        <div class="button-container">
+            <div id="pauseSubscriptionButton" class="button" style="background-color:#41cff385">Pause</div>
+            <div id="cancelSubscriptionButton" class="button" style="background-color:#21647571">Cancel</div>
+        </div>
+        <input type="text" style="display:none" id="reasonChange" ><br>
+        <div id="reasonSubmitButton" style="display:none" class="button">Submit</div>
+        <script>
+            const pauseButton = document.getElementById("pauseSubscriptionButton");
+            pauseButton.addEventListener('click', function(){
+                reasonSubmitButton.style.display = 'inline';
+                reasonChange.style.display = 'inline';
+                reasonChange.placeholder = "Reason for Pausing . . ."
+                reasonSubmitButton.addEventListener('click',function(){
+                    fetch("{{ url_for('suspend_subscription') }}",{
+                        method: "POST",
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({'reason': reasonChange.value})
+                    })
+                    .then(response => response.json())
+                    .then(data=>{
+                        if (data.status === "SUCCESS"){
+                            window.location.href = "{{ url_for('home') }}";
+                        }else{
+                            alert('Subscription Activation failed');
+                        }
+                    })
+                })
+            })
+            const cancelButton = document.getElementById("cancelSubscriptionButton");
+            cancelButton.addEventListener('click', function(){
+                reasonSubmitButton.style.display = 'inline';
+                reasonChange.style.display = 'inline';
+                reasonChange.placeholder = "Reason for Cancelling . . ."
+                reasonSubmitButton.addEventListener('click',function(){
+                    fetch("{{ url_for('cancel_subscription') }}",{
+                        method: "POST",
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({'reason': reasonChange.value})
+                    })
+                    .then(response => response.json())
+                    .then(data=>{
+                        if (data.status === "SUCCESS"){
+                            window.location.href = "{{ url_for('home') }}";
+                        }else{
+                            alert('Subscription Activation failed');
+                        }
+                    })
+                })
+            })
+
+        </script>
+        {% elif subscriptionDetails.status == "SUSPENDED" %}
+        <div class="button-container">
+            <div id="activateSubscriptionButton" class="button">Activate</div>
+            <div id="cancelSubscriptionButton" class="button" style="background-color:#21647571">Cancel</div>
+        </div>
+        <input type="text" style="display:none" id="reasonChange" ><br>
+        <div id="reasonSubmitButton" style="display:none" class="button">Submit</div>
+        <script>
+            const reasonSubmitButton = document.getElementById("reasonSubmitButton");
+            const reasonChange = document.getElementById("reasonChange");
+            const activateButton = document.getElementById("activateSubscriptionButton");
+            activateButton.addEventListener('click', function(){
+                fetch("{{ url_for('activate_subscription') }}",{
+                    method: "POST",
+                    headers: {'Content-Type': 'application/json'}
+                })
+                .then(response => response.json())
+                .then(data=>{
+                    if (data.status === "SUCCESS"){
+                        window.location.href = "{{ url_for('home') }}";
+                    }else{
+                        alert('Subscription Activation failed');
+                    }
+                })
+            })
+            
+            const cancelButton = document.getElementById("cancelSubscriptionButton");
+            cancelButton.addEventListener('click', function(){
+                reasonSubmitButton.style.display = 'inline';
+                reasonChange.style.display = 'inline';
+                reasonChange.placeholder = "Reason for Cancelling . . ."
+                reasonSubmitButton.addEventListener('click',function(){
+                    fetch("{{ url_for('cancel_subscription') }}",{
+                        method: "POST",
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({'reason': reasonChange.value})
+                    })
+                    .then(response => response.json())
+                    .then(data=>{
+                        if (data.status === "SUCCESS"){
+                            window.location.href = "{{ url_for('home') }}";
+                        }else{
+                            alert('Subscription Activation failed');
+                        }
+                    })
+                })
+            })
+        </script>
+        {% endif %}
+        
+        {% if subscriptionDetails.status == "ACTIVE" %}
+        <h3>Update Subscription</h3>
+        <p><b>Price: $<span id="update_price">{{ subscriptionDetails.price }}</span></b></p>
+            <label for="update_slider">Select Amount: <span id="update_amount">1</span></label><br>
+            <input type="range" id="update_slider" style="margin:auto;" class="product-amount-slider" min="1" max="{{ subscriptionDetails.planAmount|int * 2 }}" step="1" value="{{ subscriptionDetails.quantity }}">
+        <script>
+            const updateSlider = document.getElementById("update_slider");
+            const updateAmount = document.getElementById("update_amount");
+            updateSlider.addEventListener('input', function(){
+                updateAmount.textContent = parseFloat(updateSlider.value).toFixed(0);
+                document.getElementById("update_price").textContent = parseFloat(updateSlider.value).toFixed(0)*{{ subscriptionDetails.planPrice }};
+            })
+        </script>
+        <div class="button-container">
+            <a class="button" href="{{ url_for('home') }}">Update</a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% endif %}
+
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
     </div>
+</div><br>
+
+<div class="sub">
+    <h3>Transaction History(90 days)</h3>
+    <table style="text-align:center;">
+        <tr>
+            <th>Date(UTC)</th><th></th><th>Type</th><th>Quantity</th><th>Price</th>
+        </tr>
+        {% for entry in creditList %}
+        <tr>
+            <td>{{ entry.ts|int|date }}</td><td>~</td><td>{{ entry.type }}</td><td>{{ entry.volume }}</td><td>${{ entry.value }}</td>
+        </tr>
+        {% endfor %}
+    </table><br>
 </div>
+
 {% endblock %}

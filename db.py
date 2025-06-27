@@ -86,8 +86,17 @@ def setupDB():
             "user_id":"INTEGER DEFAULT 0",
             "type":"TEXT NOT NULL DEFAULT 'VERIFY'",
             "period":"FLOAT NOT NULL DEFAULT 24"
+        }},
+        {"table_name":"subscription_table",
+        "table_columns":{
+            "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
+            "user_id":"INTEGER DEFAULT 0",
+            "subscription_id":"TEXT NOT NULL DEFAULT 'SUB'",
+            "ts":"INTEGER NOT NULL DEFAULT 0",
+            "quantity":"INTEGER NOT NULL DEFAULT 0",
+            "status":"TEXT NOT NULL DEFAULT 'ACTIVE'"
         }}
-            ]
+    ]
     
     
     db_dir = os.path.dirname(db_path)
@@ -168,7 +177,10 @@ class User():
         self.email = data[2]
         self.password = data[3]
         self.verified = bool(data[4])
-        self.reminder = json.loads(data[5])
+        if data[5]:
+            self.reminder = json.loads(data[5])
+        else:
+            self.reminder = []
 
     def __repr__(self):
         return f"""Name: {self.name}
@@ -514,7 +526,8 @@ class Credit:
         self.volume = float(data[5])
         self.description = data[6]
         self.ts = int(data[7])
-        
+    
+
     def post(self):
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
@@ -530,76 +543,91 @@ class Credit:
             cursor.execute(query,data)
             connection.commit()
 
-def getCredits(user_id=None, bot_id=None):
+def getCredits(user_id=None, bot_id=None, type="SUM"):
     """
     Returns the remaining credit for user,
     Requires user id or bot id
+    Type = "LIST","SUM"
     """
-    credits = []
-    if bot_id and not user_id:
-        bot = getBots(id=bot_id)
-        user_id = bot.user_id
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        data = cursor.execute("SELECT * FROM credit_table WHERE user_id = ?", [user_id]).fetchall()
-        if data:
-            for entry in data:
-                credits.append(Credit(entry))
+    if type == "SUM":
+        credits = []
+        if bot_id and not user_id:
+            bot = getBots(id=bot_id)
+            user_id = bot.user_id
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            data = cursor.execute("SELECT * FROM credit_table WHERE user_id = ?", [user_id]).fetchall()
+            if data:
+                for entry in data:
+                    credits.append(Credit(entry))
 
-    ts = int(time.time())
-    creditPeriod = 4*7*24*60*60  #Secs in 4 weeks (4*7*24*60*60)
-    cred_in = 0
-    run = 0
-    pause = 0
-    start_nr = 0
-    stop_nr = 0
+        ts = int(time.time())
+        creditPeriod = 4*7*24*60*60  #Secs in 4 weeks (4*7*24*60*60)
+        cred_in = 0
+        run = 0
+        pause = 0
+        start_nr = 0
+        stop_nr = 0
 
-    if not bot_id:
-        for entry in credits:
-            if entry.description == "CREDIT":
-                cred_in += entry.volume
-            elif entry.description == "BONUS":
-                cred_in += entry.volume
-            elif entry.description == "START":
-                start_nr += 1
-                run += ts-entry.ts
-            elif entry.description == "PAUSE":
-                stop_nr += 1
-                pause += ts-entry.ts
-            else:
-                print("Unknown Credit entry:")
-                print(entry)
+        if not bot_id:
+            for entry in credits:
+                if entry.description == "CREDIT":
+                    cred_in += entry.volume
+                elif entry.description == "BONUS":
+                    cred_in += entry.volume
+                elif entry.description == "START":
+                    start_nr += 1
+                    run += ts-entry.ts
+                elif entry.description == "PAUSE":
+                    stop_nr += 1
+                    pause += ts-entry.ts
+                else:
+                    print("Unknown Credit entry:")
+                    print(entry)
 
 
-        run_time = run-pause
-        cred_time = cred_in * creditPeriod
-        active_timer = start_nr - stop_nr
-        remaining_time = 0
-        if active_timer != 0:
-            remaining_time = (cred_time - run_time)/active_timer
-        remaining_credit = (cred_time - run_time)/creditPeriod
-        details={
-            "credit":remaining_credit,
-            "time":remaining_time,
-            'active':active_timer,
-        }
-        return details
-    else:
-        for entry in credits:
-            if entry.description == "START" and int(entry.bot_id) == int(bot_id):
-                start_nr += 1
-                run += ts-entry.ts
-            elif entry.description == "PAUSE" and int(entry.bot_id) == int(bot_id):
-                stop_nr += 1
-                pause += ts-entry.ts
+            run_time = run-pause
+            cred_time = cred_in * creditPeriod
+            active_timer = start_nr - stop_nr
+            remaining_time = 0
+            if active_timer != 0:
+                remaining_time = (cred_time - run_time)/active_timer
+            remaining_credit = (cred_time - run_time)/creditPeriod
+            details={
+                "credit":remaining_credit,
+                "time":remaining_time,
+                'active':active_timer,
+            }
+            return details
+        else:
+            for entry in credits:
+                if entry.description == "START" and int(entry.bot_id) == int(bot_id):
+                    start_nr += 1
+                    run += ts-entry.ts
+                elif entry.description == "PAUSE" and int(entry.bot_id) == int(bot_id):
+                    stop_nr += 1
+                    pause += ts-entry.ts
 
-        run_time = run-pause
+            run_time = run-pause
 
-        details={
-            "credit":run_time/creditPeriod,
-            "time":run_time
-        }
-        return details
+            details={
+                "credit":run_time/creditPeriod,
+                "time":run_time
+            }
+            return details
+    elif type == "LIST":
+        credits = []
+        if bot_id and not user_id:
+            bot = getBots(id=bot_id)
+            user_id = bot.user_id
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            data = cursor.execute("SELECT * FROM credit_table WHERE user_id = ?", [user_id]).fetchall()
+            if data:
+                for entry in data:
+                    credits.append(Credit(entry))
+        return credits
+
 
 def returnCredits(user_id):
     with sqlite3.connect(db_path) as conn:
@@ -654,7 +682,7 @@ def getMessages(user_id):
 
 class Token():
     """
-    New message data list=[id:0, token:{token}, ts:int(time.time()), user_id:{user_id}, type:{type}, period:{period}]
+    New token data list=[id:0, token:{token}, ts:int(time.time()), user_id:{user_id}, type:{type}, period:{period}]
     Token - Encoded token
     Types ["VERIFY","RESET","PAYPAL]
     Period - Lifetime of token in hrs
@@ -726,3 +754,57 @@ def getTokens(token=None, type=None):
             for entry in data:
                 dbTokens.append(Token(entry))
         return dbTokens
+
+class Subscription():
+    """
+    New subscription data list=[id:0, user_id:{user_id}, subscription_id:{subscription_id}, ts:int(time.time()), status:{status}]
+    """
+    def __init__(self,data):
+        self.id = data[0]
+        self.user_id = int(data[1])
+        self.subscription_id = data[2]
+        self.ts = data[3]
+        self.quantity = int(data[4])
+        self.status = data[5]
+
+    def post(self):
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            query = "INSERT INTO subscription_table(user_id, subscription_id, ts, quantity, status) VALUES(?, ?, ?, ?, ?)"
+            cursor.execute(query,[self.user_id, self.subscription_id, self.ts, self.quantity, self.status])
+            conn.commit()
+            
+    def update(self):
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            query = "UPDATE subscription_table SET user_id=?, subscription_id=?, ts=?, quantity=?, status=? WHERE id=?"
+            cursor.execute(query,[self.user_id, self.subscription_id, self.ts, self.quantity, self.status, self.id])
+            conn.commit()
+       
+            
+    def delete(self):
+        with sqlite3.connect(db_path) as connection:
+            query = "DELETE FROM subscription_table WHERE id=?"
+            data = [self.id]
+            cursor = connection.cursor()
+            cursor.execute(query,data)
+            connection.commit()
+            
+def getSubscriptions(user_id=None):
+    "Returns token entry, by type, or list of tokens if none are supplied"
+    if user_id:
+            sub = None
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                data = cursor.execute("SELECT * FROM subscription_table WHERE user_id = ?", [user_id]).fetchone()
+                if data:
+                    sub = Subscription(data)
+            return sub
+    else:
+        subs = []
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            data = cursor.execute("SELECT * FROM subscription_table").fetchall()
+            for entry in data:
+                subs.append(Subscription(entry))
+        return subs
