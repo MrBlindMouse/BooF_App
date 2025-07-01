@@ -111,7 +111,8 @@ def setupDB():
         query_content = []
         for key,value in table["table_columns"].items():
             query_content.append(f"{key} {value}")
-        cursor.execute(f"CREATE TABLE IF NOT EXISTS {table["table_name"]}(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        columns_content = ', '.join(query_content)
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS {table["table_name"]}({columns_content})")
         cursor.execute(f"PRAGMA table_info({table["table_name"]})")
         table_columns = [col[1] for col in cursor.fetchall()]
         for name,definitions in table["table_columns"].items():
