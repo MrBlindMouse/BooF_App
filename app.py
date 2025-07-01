@@ -249,11 +249,10 @@ def signup():
         password = form.password.data
         newUser = db.User([0, name, email, password, False, []])
         newUser.post()
-        user = db.getUsers(email=newUser.email)
-        bonus = db.Credit([0, user.id, 0, "", 0, 1, "BONUS", int(time.time())])
+        bonus = db.Credit([0, newUser.id, 0, "", 0, 1, "BONUS", int(time.time())])
         bonus.post()
-        #userVerificationEmail(user)
-        message = db.Message([0, user.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
+        userVerificationEmail(user)
+        message = db.Message([0, newUser.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
         message.post()
         session["message"] = "Signup Successful! Please log in using email and password"
         valr.logPost("New user signed up",'1')
@@ -772,7 +771,8 @@ def buy():
     subscription = db.getSubscriptions(user_id=session["id"])
     if not subscription:
         plans = paypal.findSubscriptions()
-        plans["custom_id"] = f"userID_{session["id"]}"
+        for entry in plans:
+            entry["custom_id"] = f"userID_{session["id"]}"
     else:
         subscriptionPlan = paypal.findSubscriptions()
         subscriptionDetails = {
@@ -896,6 +896,25 @@ def activate_subscription():
         message.post()
     return jsonify({"status":action})
 
+@app.route('/update-subscription', methods=["POST"])
+def update_subscription():
+    if "id" not in session:
+        return redirect(url_for('login'))
+    if session.modified:
+        session.pop('id', default=None)
+        session["error"] = "Stop that!"
+        return redirect(url_for('login'))
+    subscription = db.getSubscriptions(user_id=session["id"])
+    data = request.json
+    action = paypal.reviseSubscription(subscription.subscription_id, int(data["amount"]))
+    if action == "SUCCESS":
+        subscription.quantity = int(data["amount"])
+        subscription.update()
+        message = db.Message([0,session["id"],'INFO',f'Your Subscription quantity was successfully updated to {data["amount"]}x Credits.'])
+        message.post()
+    return jsonify({"status":action})
+
+
 @app.route('/reset', methods=["GET","POST"])
 def reset():
     form = createResetForm()
@@ -1015,16 +1034,136 @@ def hook():
     header = request.headers
     data = request.json
     action = paypal.verifyHook(data, header)
+    if "event_type" not in data:
+        msg=f"Unformatted Webhook received:<br>{json.dumps(data,indent=4)}"
+        valr.logPost(msg.replace('\n','<br>').replace('    ','&emsp;'),'3')
+        return jsonify({"status":"FAILED"}),400
+
     if action == "SUCCESS":
-        dataString = json.dumps(data, indent=4)
-        msg=f"Paypal webhook<br>{dataString.replace('\n','<br>')}"
-        valr.logPost(msg,'1')
+        if data["event_type"] == "PAYMENT.CAPTURE.COMPLETE":
+            string = data["resource"]["custom_id"]
+            key, userID = string.split('_')
+            transactionID = data["resource"]["supplementary_data"]["related_ids"]["order_id"]
+            userCredits = db.getCredits(user_id=userID,type="LIST")
+            found = False
+            for credit in userCredits:
+                if credit.deposit_nr == transactionID:
+                    found=True
+                    break
+            if not found:
+                orderDetails = paypal.getOrderDetails(transactionID)
+                if orderDetails["status"] == "COMPLETED":
+                    value = float(orderDetails["purchase_units"][0]["amount"]["value"])
+                    volume = int(orderDetails["purchase_units"][0]["items"][0]["quantity"])
+                    newCredit = db.Credit([0,userID,0,transactionID,value,volume,"CREDIT",int(time.time())])
+                    newCredit.post()
+                    message=db.Message([0,userID,'INFO',f"Purchase Successful! {volume}x Credits added to account!"])
+                    message.post()
+                else:
+                    dataString = json.dumps(data, indent=4)
+                    msg=f"Paypal webhook<br>{dataString.replace('\n','<br>').replace('    ','&emsp;')}"
+                    valr.logPost(msg,'1')
+        elif data["event_type"] == "BILLING.SUBSCRIPTION.ACTIVATED":
+            string = data["resource"]["custom_id"]
+            key, userID = string.split('_')
+            planID = data["resource"]["plan_id"]
+            subscriptionID = data["resource"]["id"]
+            status = data["resource"]["status"]
+            subscription = db.getSubscriptions(userID)
+            if subscription:
+                if sub.status != status:
+                    sub.status = status
+                    sub.update()
+                    message = db.Message(0,userID,'INFO','Your Subscription plan was successfully re-activated.')
+                    message.post()
+            else:
+                dataString = json.dumps(data, indent=4)
+                msg=f"UnRegistered Paypal Subscription Activation hook:<br>{dataString.replace('\n','<br>').replace('    ','&emsp;')}"
+                valr.logPost(msg)
+        elif data["event_type"] == "BILLING.SUBSCRIPTION.SUSPENDED":
+            string = data["resource"]["custom_id"]
+            key, userID = string.split('_')
+            planID = data["resource"]["plan_id"]
+            subscriptionID = data["resource"]["id"]
+            status = data["resource"]["status"]
+            subscription = db.getSubscriptions(userID)
+            if subscription:
+                if sub.status != status:
+                    sub.status = status
+                    sub.update()
+                    message = db.Message(0,userID,'INFO','Your Subscription plan was successfully suspended.')
+                    message.post()
+            else:
+                dataString = json.dumps(data, indent=4)
+                msg=f"UnRegistered Paypal Subscription Suspension hook:<br>{dataString.replace('\n','<br>').replace('    ','&emsp;')}"
+                valr.logPost(msg)
+        elif data["event_type"] == "BILLING.SUBSCRIPTION.UPDATED":
+            string = data["resource"]["custom_id"]
+            key, userID = string.split('_')
+            planID = data["resource"]["plan_id"]
+            subscriptionID = data["resource"]["id"]
+            quantity = data["resource"]["quantity"]
+            subs = db.getSubscriptions(userID)
+            if subs:
+                if subs.quantity != quantity:
+                    subs.quantity = quantity
+                    subs.update()
+                    message = db.Message(0,userID,'INFO',f'Your Subscription quantity was successfully updated to {quantity}x Credits.')
+                    message.post()
+            else:
+                msg = json.dumps(data, indent=4)
+                valr.logPost(f"Un-recorded subscription update hook:<br>{msg.replace('\n','<br>').replace('    ','&emsp;')}")
+
+        elif data["event_type"] == "BILLING.SUBSCRIPTION.CREATED":
+            string = data["resource"]["custom_id"]
+            key, userID = string.split('_')
+            planID = data["resource"]["plan_id"]
+            subscriptionID = data["resource"]["id"]
+            subs = db.getSubscriptions(userID)
+            if not subs:
+                data = {
+                    "planID":subscriptionID
+                }
+                paypal.captureSubsription(data)
+            else:
+                if subs.subscription_id != subscriptionID:
+                    paypal.cancelSubscription(subs.subscription_id,"Hook for new subscription")
+                    subs.delete()
+                    data = {
+                        "planID":subscriptionID
+                    }
+                    paypal.captureSubsription(data)
+                    message = db.Message(0,userID,'INFO','Your Subscription plan was successfully activated.')
+                    message.post()
+            #Finish Sub creation Logic
+        elif data["event_type"] == "PAYMENT.SALE.COMPLETED":
+            string = data["resource"]["custom_id"]
+            key, userID = string.split('_')
+            planID = data["resource"]["plan_id"]
+            subsID = data["resource"]["id"]
+            subs = db.getSubscriptions(userID)
+            value = data["resource"]["amount"]["total"]
+            if subs:
+                newCredit = db.Credit([0,userID,0,subsID,value,subs.quantity,"CREDIT", int(time.time())])
+                newCredit.post()
+                message = db.Message([0,userID,'INFO',f"Payment received, {subs.quantity}x credits added to account"])
+                message.post()
+            else:
+                msg = json.dumps(data, indent=4)
+                valr.logPost(f"Un-recorded subscription payment received:<br>{msg.replace('\n','<br>').replace('    ','&emsp;')}")
+
+        else:
+            msg=f"Unknown Paypal Webhook received:<br>{json.dumps(data,indent=4)}"
+            valr.logPost(msg.replace('\n','<br>').replace('    ','&emsp;'),'2')
+
+        return jsonify({"status":action})
+
     else:
         dataString = json.dumps(data, indent=4)
-        msg=f"Paypal failed webhook<br>{dataString.replace('\n','<br>')}"
-        valr.logPost(msg,'2')
+        msg=f"Unverified Paypal Webhook<br>{dataString.replace('\n','<br>').replace('    ','&emsp;')}"
+        valr.logPost(msg,'3')
+        return jsonify({"status":"FAILED"}),400
 
-    return jsonify({"status":action})
 
 @app.template_filter('date')
 def tsConvert(s):

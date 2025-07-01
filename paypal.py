@@ -6,6 +6,24 @@ envConfig = dotenv_values(".env")
 baseURL = "https://api-m.paypal.com" if envConfig["PAYPAL_MODE"] == "LIVE" else "https://api-m.sandbox.paypal.com"
 
 #Active Functions
+def getOrderDetails(orderID):
+    token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
+    url = f"{baseURL}/v2/checkout/orders/{orderID}"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token.token}"
+    }
+    result = requests.get(url, headers=headers)
+    if result.status_code == 200:
+        jsonResult = result.json()
+        return jsonResult
+    else:
+        print("Error finding order details:")
+        print(result.reason)
+        print(result.content)
+
+def getSubscriptionDetails(subID):
+    pass
 
 def createOrder(prodID, amount, userID):
     token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
@@ -87,7 +105,7 @@ def captureOrder(data, userID):
 
 def captureSubsription(data, userID):
     token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
-    url = f"{baseURL}/v1/billing/subscriptions/{data["planID"]}"
+    url = f"{baseURL}/v1/billing/subscriptions/{data["subscriptionID"]}"
     headers = {
         "Authorization": f"Bearer {token.token}",
         "Content-Type": "application/json",
@@ -316,6 +334,35 @@ def activateSubscription(subscriptionID):
         print(result.reason)
         print(result.content)
         return "FAILED"
+
+def reviseSubscription(subscriptionID, amount):
+    url= f"{baseURL}/v1/billing/subscriptions/{subscriptionID}/revise"
+    token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
+    headers = {
+        'Authorization': f'Bearer {token.token}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    }
+    data={
+        "quantity":amount
+    }
+    result = requests.post(url=url, headers=headers, data=json.dumps(data))
+    if result.status_code == 200:
+        jsonResult = result.json()
+        print(json.dumps(jsonResult, indent=4))
+        if int(jsonResult["quantity"]) == amount:
+            return "SUCCESS"
+        else:
+            print("Updating subscription failed:")
+            print(result.content)
+            return "FAILED"
+    else:
+        print("Subscription update failed:")
+        print(result.reason)
+        print(result.content)
+        return "FAILED"
+
+
 
 #Product Functions
 

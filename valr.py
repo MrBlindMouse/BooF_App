@@ -1425,7 +1425,7 @@ def feedbackEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("Feedback Email sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "What happened?", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "What happened?", recipient=user.email)
 
 def unVerifiedEmail(config=Config, user=db.User):
     body = f"""
@@ -1437,7 +1437,7 @@ def unVerifiedEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("unVerifiedEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "Account Verification?", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "Account Verification?", recipient=user.email)
 
 def botsInactiveEmail(config=Config, user=db.User):
     body = f"""
@@ -1449,7 +1449,7 @@ def botsInactiveEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("botsInactiveEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "Everything ok?", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "Everything ok?", recipient=user.email)
 
 def noCreditsReminderEmail(config=Config, user=db.User):
     body = f"""
@@ -1462,7 +1462,7 @@ def noCreditsReminderEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("noCreditsReminderEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "What happened?", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "What happened?", recipient=user.email)
 
 def noCreditsEmail(config=Config, user=db.User):
     body = f"""
@@ -1474,7 +1474,7 @@ def noCreditsEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("noCreditsEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "No Credit Warning", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "No Credit Warning", recipient=user.email)
 
 def creditsReminderEmail(config=Config, user=db.User):
     body = f"""
@@ -1486,7 +1486,7 @@ def creditsReminderEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("creditsReminderEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "Credit Warning", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "Credit Warning", recipient=user.email)
 
 def creditsFollowUpReminderEmail(config=Config, user=db.User):
     body = f"""
@@ -1498,7 +1498,7 @@ def creditsFollowUpReminderEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("creditsFollowUpReminderEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "Low Credit Warning", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "Low Credit Warning", recipient=user.email)
 
 def downturnProtectionEmail(config=Config, user=db.User):
     body = f"""
@@ -1511,7 +1511,7 @@ def downturnProtectionEmail(config=Config, user=db.User):
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     print("creditsFollowUpReminderEmail sent")
-    #postmark.sendMail(config.postmarkKey, emailBase(body), "Downturn Protection", recipient=user.email)
+    postmark.sendMail(config.postmarkKey, emailBase(body), "Downturn Protection", recipient=user.email)
 
 # Admin Functions
 

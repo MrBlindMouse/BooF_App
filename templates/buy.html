@@ -137,7 +137,7 @@
                         return fetch("{{ url_for('capture_subscription') }}",{
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({planID: data.subscriptionID})
+                            body: JSON.stringify({subscriptionID: data.subscriptionID})
                         })
                         .then(response => response.json())
                         .then(data => {
@@ -170,7 +170,7 @@
                         return fetch("{{ url_for('capture_subscription') }}",{
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({planID: data.id})
+                            body: JSON.stringify({subscriptionID: data.subscriptionID})
                         })
                         .then(response => response.json())
                         .then(data => {
@@ -197,8 +197,8 @@
         <p>Price: <b>${{ subscriptionDetails.price }}</b></p>
         {% if subscriptionDetails.status == "ACTIVE" %}
         <div class="button-container">
-            <div id="pauseSubscriptionButton" class="button" style="background-color:#41cff385">Pause</div>
-            <div id="cancelSubscriptionButton" class="button" style="background-color:#21647571">Cancel</div>
+            <a id="pauseSubscriptionButton" class="button" style="background-color:#41cff385">Pause</a>
+            <a id="cancelSubscriptionButton" class="button" style="background-color:#21647571">Cancel</a>
         </div>
         <input type="text" style="display:none" id="reasonChange" ><br>
         <div id="reasonSubmitButton" style="display:none" class="button">Submit</div>
@@ -249,8 +249,8 @@
         </script>
         {% elif subscriptionDetails.status == "SUSPENDED" %}
         <div class="button-container">
-            <div id="activateSubscriptionButton" class="button">Activate</div>
-            <div id="cancelSubscriptionButton" class="button" style="background-color:#21647571">Cancel</div>
+            <a id="activateSubscriptionButton" class="button">Activate</a>
+            <a id="cancelSubscriptionButton" class="button" style="background-color:#21647571">Cancel</a>
         </div>
         <input type="text" style="display:none" id="reasonChange" ><br>
         <div id="reasonSubmitButton" style="display:none" class="button">Submit</div>
@@ -300,7 +300,7 @@
         {% if subscriptionDetails.status == "ACTIVE" %}
         <h3>Update Subscription</h3>
         <p><b>Price: $<span id="update_price">{{ subscriptionDetails.price }}</span></b></p>
-            <label for="update_slider">Select Amount: <span id="update_amount">1</span></label><br>
+            <label for="update_slider">Select Amount: <span id="update_amount">{{ subscriptionDetails.quantity }}</span></label><br>
             <input type="range" id="update_slider" style="margin:auto;" class="product-amount-slider" min="1" max="{{ subscriptionDetails.planAmount|int * 2 }}" step="1" value="{{ subscriptionDetails.quantity }}">
         <script>
             const updateSlider = document.getElementById("update_slider");
@@ -311,8 +311,27 @@
             })
         </script>
         <div class="button-container">
-            <a class="button" href="{{ url_for('home') }}">Update</a>
+            <a id="updateSubscriptionButton" class="button">Update</a>
         </div>
+        <script>
+            const updateButton = document.getElementById("updateSubscriptionButton");
+            updateButton.addEventListener('click',function(){
+                const amount = updateSlider.value
+                fetch('{{ url_for("update_subscription") }}',{
+                    method: "POST",
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({'amount': amount})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "SUCCESS"){
+                        window.location.href = "{{ url_for('home') }}";
+                    }else{
+                        alert('Subscription Activation failed');
+                    }
+                })
+            })
+        </script>
         {% endif %}
     </div>
 
