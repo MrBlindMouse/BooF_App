@@ -4,3 +4,4 @@ __pycache__
 config_state.pkl
 data/*
 test.py
+product_list.json
