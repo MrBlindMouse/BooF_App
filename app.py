@@ -5,7 +5,7 @@ from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationE
 from dotenv import dotenv_values
 import time, json
 import hashlib, base64, hmac
-import shortuuid
+import shortuuid, uuid
 
 import db, valr, postmark, paypal
 
@@ -249,7 +249,8 @@ def signup():
         password = form.password.data
         newUser = db.User([0, name, email, password, False, []])
         newUser.post()
-        bonus = db.Credit([0, newUser.id, 0, "", 0, 1, "BONUS", int(time.time())])
+        uid = str(uuid.uuid4())
+        bonus = db.Credit([0, newUser.id, 0, f"BONUS_{uid}", 0, 1, "BONUS", int(time.time())])
         bonus.post()
         userVerificationEmail(newUser)
         message = db.Message([0, newUser.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
