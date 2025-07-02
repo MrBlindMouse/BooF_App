@@ -65,7 +65,7 @@ def setupDB():
             "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
             "user_id":"INTEGER NOT NULL",
             "bot_id":"INTEGER",
-            "deposit_nr":"TEXT UNIQUE NOT NULL",
+            "deposit_nr":"TEXT UNIQUE",
             "value":"FLOAT NOT NULL",
             "volume":"FLOAT NOT NULL",
             "description":"TEXT NOT NULL",
@@ -522,7 +522,7 @@ class Credit:
         self.id = int(data[0])
         self.user_id = int(data[1])
         self.bot_id = int(data[2])
-        self.deposit_nr = data[3]
+        self.deposit_nr = str(data[3])
         self.value = float(data[4])
         self.volume = float(data[5])
         self.description = data[6]

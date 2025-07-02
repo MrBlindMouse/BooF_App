@@ -249,8 +249,7 @@ def signup():
         password = form.password.data
         newUser = db.User([0, name, email, password, False, []])
         newUser.post()
-        uid = str(uuid.uuid4())
-        bonus = db.Credit([0, newUser.id, 0, f"BONUS_{uid}", 0, 1, "BONUS", int(time.time())])
+        bonus = db.Credit([0, newUser.id, 0, "", 0, 1, "BONUS", int(time.time())])
         bonus.post()
         userVerificationEmail(newUser)
         message = db.Message([0, newUser.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
