@@ -238,7 +238,7 @@ def getUsers(id=None, email=None):
             cursor = conn.cursor()
             data = cursor.execute("SELECT * FROM user_table WHERE id = ?", [id]).fetchone()
             if data:
-                user = User(list(data))
+                user = User(data)
         return user
     elif email:
         user=None
@@ -246,7 +246,7 @@ def getUsers(id=None, email=None):
             cursor = conn.cursor()
             data = cursor.execute("SELECT * FROM user_table WHERE email = ?", [email]).fetchone()
             if data:
-                user = User(list(data))
+                user = User(data)
         return user
     else:
         users=[]
