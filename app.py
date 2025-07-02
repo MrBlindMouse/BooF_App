@@ -623,6 +623,7 @@ def verify(uid):
         valr.logPost(f'User for token does not exist, token: {token.token}', '3')
         return abort(404)
     if token.type == "VERIFY":
+        valr.logPost(f'Verifying User: {user.name}', '1')
         user.verified = True
         user.update()
         message = db.Message([0,user.id,"INFO","Your account has successfully been verified!"])
