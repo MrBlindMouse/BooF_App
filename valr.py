@@ -1419,7 +1419,7 @@ def feedbackEmail(config=Config, user=db.User):
     body = f"""
         <p style='color:black;'>Hi {user.name},</p><br>
         <p style='color:black;'>Its been 2 weeks, is everything ok?</p>
-        <p style='color:black;'>If you have any feedback to make the BooF bots better, please send us a mail at <address><a href='mailto:admin@bmd-studios.com'>admin@bmd-studios.com</a></address>!</p>
+        <p style='color:black;'>If you have any feedback to make the BooF bots better, please send us a mail at <address><a href='mailto:boof@bmd-studios.com'>boof@bmd-studios.com</a></address>!</p>
         <p style='color:black;'>We hope to see you again soon!</p><br>
         <p style='color:black;'>Best wishes,</p>
         <p style='color:black;'>&emsp;The BooF Team</p>
@@ -1456,7 +1456,7 @@ def noCreditsReminderEmail(config=Config, user=db.User):
         <p style='color:black;'>Hi {user.name},</p><br>
         <p style='color:black;'>Its been a while, is everything ok?</p>
         <p style='color:black;'>You're bots are in-active and credits zero. To buy more credits, log in to your account and go to the 'Buy Credits' page.</p>
-        <p style='color:black;'>If you have any feedback to make the BooF bots better, please send us a mail at <address><a href='mailto:admin@bmd-studios.com'>admin@bmd-studios.com</a></address>!</p>
+        <p style='color:black;'>If you have any feedback to make the BooF bots better, please send us a mail at <address><a href='mailto:boof@bmd-studios.com'>boof@bmd-studios.com</a></address>!</p>
         <p style='color:black;'>We hope to see you again soon!</p><br>
         <p style='color:black;'>Best wishes,</p>
         <p style='color:black;'>&emsp;The BooF Team</p>

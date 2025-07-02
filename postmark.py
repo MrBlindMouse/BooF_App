@@ -3,7 +3,7 @@ import requests, json, time
 import hashlib, base64, hmac
 import db, valr
 
-def sendMail(token, content, subject, recipient = "admin@bmd-studios.com", sender = "BooF <admin@bmd-studios.com>", ):
+def sendMail(token, content, subject, recipient = "boof@bmd-studios.com", sender = "BooF <boof@bmd-studios.com>", ):
     url = "https://api.postmarkapp.com/email"
     header = {
         "Accept": "application/json",
