@@ -251,7 +251,7 @@ def signup():
         newUser.post()
         bonus = db.Credit([0, newUser.id, 0, "", 0, 1, "BONUS", int(time.time())])
         bonus.post()
-        userVerificationEmail(user)
+        userVerificationEmail(newUser)
         message = db.Message([0, newUser.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
         message.post()
         session["message"] = "Signup Successful! Please log in using email and password"
