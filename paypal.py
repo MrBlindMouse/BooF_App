@@ -230,7 +230,9 @@ def checkPlans(token=db.Token):
                         plan["id"] = entry["id"]
                     break
             if not found:
-                createPlan(plan, token)
+                planID = createPlan(plan, token)
+                plan["id"] = planID
+                change = True
         if change:
             print("Updating product file")
             with open("product_list.json", "w") as file:
@@ -240,6 +242,9 @@ def checkPlans(token=db.Token):
 
 def createPlan(planFile, token=db.Token):
     "Create subscription plan, check paypal dev docs for plan file(json), add 'max_amount':{} manually and plan 'id':{} automatically after reboot"
+    if planFile["product_id"] == "":
+        print("Product ID missing for subscription plan")
+        return
     print(f"Creating plan: {planFile["name"]}")
     url = f"{baseURL}/v1/billing/plans"
     UID = str(uuid.uuid4())
@@ -257,6 +262,8 @@ def createPlan(planFile, token=db.Token):
         result.raise_for_status()
         jsonResult = result.json()
         print(json.dumps(jsonResult, indent=4))
+        planID = jsonResult["id"]
+        return planID
     except requests.exceptions.HTTPError as e:
         print(f"HTTP error: {e}")
         print(f"Result: {result.text}")
@@ -619,20 +626,16 @@ def setupPaypal(hookURL=None):
     "Setup and Update products and subscriptions, to be run every update"
     token = getAccessToken(envConfig["PAYPAL_ID"],envConfig["PAYPAL_SECRET"])
     
+    try:
+        checkProducts(token)
+        checkPlans(token)
+    except Exception as e:
+        print(e)
+        return
+
     product_list = None
     with open("product_list.json", "r") as file:
         product_list = json.load(file)
-
-    if product_list["products"]:
-        checkProducts(token)
-    else:
-        print("Product list empty")
-        return
-
-    if product_list["plans"]:
-        checkPlans(token)
-    else:
-        print("Subscription Plan list empty")
 
     if product_list["hooks"]:
         id = checkHooks(hookURL, token)
