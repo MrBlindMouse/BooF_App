@@ -101,15 +101,15 @@ def userVerificationEmail(user = db.User):
 
     body = f"""
         <p style='color:black;'>Hi {user.name},</p><br>
-        <p style='color:black;'>Thank you for creating an account with us.<p>
-        <p style='color:black;'>To verify your account please following the link below:</p>
-        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">Verify Link</a></p>
-        <p style='color:black;'>- or -</p>
-        <p style='color:black;'>Copy the following into you web browser:</p>
+        <p style='color:black;'>Thank you for joining BooF Bots! We’re excited to have you on board.<p>
+        <p style='color:black;'>To complete your account setup, please verify your email address by clicking the link below:</p>
+        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">Verify Your Account</a></p>
+        <p style='color:black;'>Alternatively, you can copy and paste the following URL into your web browser:</p>
         <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">https://www.boof-bots.com/verify/{verifyKey}</a></p>
-        <p style='color:black;'>The Verification link will only stay active for 24 hours. If this time has passed, please request another email in your profile page.</p><br>
-        <p style='color:black;'>Once you account has been verified you'll be able to create and configure bots for your VALR account!</p><br><br>
-        <p style='color:black;'>Hope all goes well!</p>
+        <p style='color:black;'>Please note that this verification link will expire in 24 hours. If you need a new link, you can request one from your profile page.</p>
+        <p style='color:black;'>Once verified, you’ll be able to create and configure bots for your VALR account with ease.</p>
+        <p style='color:black;'>We’re here to help—please reach out if you have any questions!</p>
+        <p style='color:black;'>Best Regards,</p>
         <p style='color:black;'>&emsp;The BooF Team</p>
     """
     htmlBody = render_template('emailBase.html', message=body)
@@ -301,8 +301,8 @@ def home():
     messages = []
     if userData.verified != 1:
         messages.append({
-            "type":"WARNING",
-            "message":"Account not verified."
+            "type":"INFO",
+            "message":"Please complete the verification process to access full features."
         })
     if "message" in session:
         messages.append({
