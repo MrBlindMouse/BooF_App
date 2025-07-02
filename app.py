@@ -249,10 +249,11 @@ def signup():
         password = form.password.data
         newUser = db.User([0, name, email, password, False, [{'code':0,'ts':ts,'description':'New Unverified account'}]])
         newUser.post()
-        bonus = db.Credit([0, newUser.id, 0, "", 0, 1, "BONUS", ts])
+        user = db.getUser(email=newUser.email) # To find proper user.id
+        bonus = db.Credit([0, user.id, 0, "", 0, 1, "BONUS", ts])
         bonus.post()
-        userVerificationEmail(newUser)
-        message = db.Message([0, newUser.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
+        userVerificationEmail(user)
+        message = db.Message([0, user.id, "INFO", "An email has been sent to your email address, follow the instructions to verify your account"])
         message.post()
         session["message"] = "Signup Successful! Please log in using email and password"
         valr.logPost("New user signed up",'1')
@@ -623,7 +624,6 @@ def verify(uid):
         valr.logPost(f'User for token does not exist, token: {token.token}', '3')
         return abort(404)
     if token.type == "VERIFY":
-        valr.logPost(f'Verifying User: {user.name}', '1')
         user.verified = True
         user.update()
         message = db.Message([0,user.id,"INFO","Your account has successfully been verified!"])
