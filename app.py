@@ -963,7 +963,7 @@ def reset():
             return redirect(url_for("login"))
 
         passwordResetEmail(user)
-        session["message"]="Reset email has been sent, please check your email for futher instructions."
+        session["message"]="A password reset email has been sent. Please check your inbox for further instructions."
         valr.logPost(f"Password Reset Requested for {user.email}, ID:{user.id}",'1')
         return redirect(url_for("login"))
 
