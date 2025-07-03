@@ -749,7 +749,7 @@ def addbot():
                 message.post()
                 return redirect(url_for('home'))
         if valr.validateKeys(key, secret, session["id"]):
-            bot = db.Bot([0, session["id"], name, key, secret, "ZAR", False, 0, 0, 0, 0, False, False])
+            bot = db.Bot([0, session["id"], name, key, secret, "ZAR", False, 0, 0, 0, 0, False, False, 0, False])
             bot.post()
             message = db.Message([0, session["id"], "INFO", "Success! New bot created!"])
             message.post()

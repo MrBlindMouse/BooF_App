@@ -261,7 +261,7 @@ def getUsers(id=None, email=None):
 
 class Bot:
     """
-    New bot data list=[id:0, user_id:{user_id}, name:{name}, key:{key}, secret:{secret}, currency:{""}, active:{False}, equity:{0}, balance_nr:{0}, balance_value:{0}, margin:{0}, dynamic_margin:{False}, refined_weight:{False}]
+    New bot data list=[id:0, user_id:{user_id}, name:{name}, key:{key}, secret:{secret}, currency:{""}, active:{False}, equity:{0}, balance_nr:{0}, balance_value:{0}, margin:{0}, dynamic_margin:{False}, refined_weight:{False}, quote_balance:{0}, downturn_protection:{False}]
     """
     def __init__(self, data):
         self.id = int(data[0])
@@ -304,7 +304,7 @@ class Bot:
         "Creates a new db entry, only call this to create a new bot"
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            query = "INSERT INTO bot_table(user_id, name, key, secret, currency, active, equity, quote_balance balance_nr, balance_value, margin, dynamic_margin, refined_weight, downturn_protection) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            query = "INSERT INTO bot_table(user_id, name, key, secret, currency, active, equity, quote_balance, balance_nr, balance_value, margin, dynamic_margin, refined_weight, downturn_protection) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             cursor.execute(query,[self.user_id, self.name, self.key, self.secret, self.currency, self.active, self.equity, self.quote_balance, self.balance_nr, self.balance_value, self.margin, self.dynamic_margin, self.refined_weight, self.downturn_protection])
             conn.commit()
             
