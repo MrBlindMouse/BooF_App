@@ -9,7 +9,7 @@ xClientSecret = envConfig["X_CLIENT_SECRET"]
 
 def xBearerToken(clientID, clientSecret):
     url = "https://api.twitter.com/oauth2/token"
-    auth = (client_id, client_secret)
+    auth = (clientID, clientSecret)
     data = {"grant_type": "client_credentials"}
     
     response = requests.post(url, auth=auth, data=data)
