@@ -65,9 +65,9 @@ def setupDB():
             "id":"INTEGER PRIMARY KEY AUTOINCREMENT",
             "user_id":"INTEGER NOT NULL",
             "bot_id":"INTEGER",
-            "deposit_nr":"TEXT UNIQUE",
-            "value":"FLOAT NOT NULL",
-            "volume":"FLOAT NOT NULL",
+            "deposit_nr":"TEXT",
+            "value":"FLOAT",
+            "volume":"FLOAT",
             "description":"TEXT NOT NULL",
             "ts":"INTEGER NOT NULL"
             }},
