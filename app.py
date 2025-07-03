@@ -550,9 +550,9 @@ def botconfig(id):
         name = form.name.data
         currency = form.currency.data
         margin = int(form.margin.data)/100
-        refinedWeight = bool(form.refinedWeight.data)
-        dynamicMargin = bool(form.dynamicMargin.data)
-        downturnProtection = bool(form.downturnProtection.data)
+        refinedWeight = form.refinedWeight.data
+        dynamicMargin = form.dynamicMargin.data
+        downturnProtection = form.downturnProtection.data
         active = form.active.data
 
         if currency != bot.currency:
@@ -930,7 +930,7 @@ def reset():
         session["message"]="Reset email has been sent, please check your email for futher instructions."
         valr.logPost(f"Password Reset Requested for {user.email}, ID:{user.id}",'1')
         return redirect(url_for("login"))
-        
+
     return render_template('reset.html', form=form, meta="Password Reset")
 
 @app.route('/clear/<id>')
