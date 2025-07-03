@@ -4,6 +4,7 @@ email_validator
 wtforms
 requests
 requests-ratelimiter
+requests-oauthlib
 python-dotenv
 schedule
 shortuuid

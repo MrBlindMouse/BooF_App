@@ -114,7 +114,7 @@ def userVerificationEmail(user = db.User):
         <p style='color:black;'>To complete your account setup, please verify your email address by clicking the link below:</p>
         <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">Verify Your Account</a></p>
         <p style='color:black;'>Alternatively, you can copy and paste the following URL into your web browser:</p>
-        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">https://www.boof-bots.com/verify/{verifyKey}</a></p>
+        <p style='color:black;'>https://www.boof-bots.com/verify/{verifyKey}</p>
         <p style='color:black;'>Please note that this verification link will expire in 24 hours. If you need a new link, you can request one from your profile page.</p>
         <p style='color:black;'>Once verified, you’ll be able to create and configure bots for your VALR account with ease.</p>
         <p style='color:black;'>We’re here to help—please reach out if you have any questions!</p>
@@ -176,7 +176,7 @@ def passwordResetEmail(user=db.User):
         <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">Verify Link</a></p>
         <p style='color:black;'>- or -</p>
         <p style='color:black;'>Copy the following into you web browser:</p>
-        <p style='color:black;'><a href="https://www.boof-bots.com/verify/{verifyKey}">https://www.boof-bots.com/verify/{verifyKey}</a></p>
+        <p style='color:black;'>https://www.boof-bots.com/verify/{verifyKey}</p>
         <p style='color:black;'>This link will only stay active for 1 hour. If this time has passed, please resubmit the request.</p><br>
         <p style='color:black;'>Hope all goes well!</p>
         <p style='color:black;'>&emsp;The BooF Team</p>
