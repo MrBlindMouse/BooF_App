@@ -1833,14 +1833,14 @@ def xUpdate(config=Config):
     msg = "Daily Crypto Price(USDC) Trends Update: "
     trendStrings = []
     for entry in config.USDC:
-        trendStrings.append(f"{entry["base"]} Trend:{valr.trunc(entry["trend"],2)} RSI:{int(entry["rsi"])}")
+        trendStrings.append(f"{entry["base"]} Trend:{trunc(entry["trend"],2)} RSI:{int(entry["rsi"])}")
     msg += " | ".join(trendStrings)
     fire = ''
     if generalTrend > 1.05:
         fire = '🚀'
     elif generalTrend < 0.95:
         fire = '🌧️'
-    msg += f". And the Greater Market Trend is {valr.trunc(generalTrend,2)} {fire}"
+    msg += f". And the Greater Market Trend is {trunc(generalTrend,2)} {fire}"
     msg += ". Brought to you by https://boof-bots.com, and https://valr.com #crypto #tradingbot #hodl"
     twitter.xPost(msg)
 
