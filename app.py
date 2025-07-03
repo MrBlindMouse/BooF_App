@@ -249,7 +249,7 @@ def signup():
         password = form.password.data
         newUser = db.User([0, name, email, password, False, json.dumps([{"code":0,"ts":ts,"description":"New Unverified account"}])])
         newUser.post()
-        user = db.getUser(email=newUser.email) # To find proper user.id
+        user = db.getUsers(email=newUser.email) # To find proper user.id
         bonus = db.Credit([0, user.id, 0, "", 0, 1, "BONUS", ts])
         bonus.post()
         userVerificationEmail(user)
