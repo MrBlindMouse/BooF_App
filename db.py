@@ -272,12 +272,12 @@ class Bot:
         self.currency = data[5]
         self.active = bool(data[6])
         self.equity = float(data[7])
-        self.balance_nr = int(data[8])
-        self.balance_value = float(data[9])
-        self.margin = float(data[10])
-        self.dynamic_margin = bool(data[11])
-        self.refined_weight = bool(data[12])
-        self.quote_balance = float(data[13])
+        self.quote_balance = float(data[8])
+        self.balance_nr = int(data[9])
+        self.balance_value = float(data[10])
+        self.margin = float(data[11])
+        self.dynamic_margin = bool(data[12])
+        self.refined_weight = bool(data[13])
         self.downturn_protection = bool(data[14])
         
     def __repr__(self):
