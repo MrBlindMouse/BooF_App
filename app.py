@@ -554,6 +554,8 @@ def botconfig(id):
         dynamicMargin = form.dynamicMargin.data
         downturnProtection = form.downturnProtection.data
         active = form.active.data
+        msg = bot.__repr__()
+        valr.logPost(msg.replace('\n','<br>'))
 
         if currency != bot.currency:
             valr.updateCurrency(currency, bot)
@@ -605,6 +607,11 @@ def botconfig(id):
                 message.post()
                 credit = db.Credit([0,bot.user_id,bot.id,'',0,0,'PAUSE',int(time.time())])
                 credit.post()
+        
+        newBot = db.getBots(id=bot.id)
+        msg = newBot.__repr__()
+        valr.logPost(msg.replace('\n','<br>'))
+
         return redirect(url_for('home'))
     return render_template("botconfig.html", form=form, id=bot.id, meta="Bot configuration")
 
