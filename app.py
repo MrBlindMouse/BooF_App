@@ -557,16 +557,41 @@ def botconfig(id):
 
         if currency != bot.currency:
             valr.updateCurrency(currency, bot)
-            message = db.Message([0,bot.user_id,"INFO","Bot Currency changed!"])
+            message = db.Message([0,bot.user_id,"INFO","Bot Currency Changed!"])
             message.post()
-        if name != bot.name or margin != bot.margin or refinedWeight != bot.refined_weight or dynamicMargin != bot.dynamic_margin or downturnProtection != bot.downturn_protection:
+
+        if name != bot.name:
             bot.name = name
-            bot.margin = margin
-            bot.refined_weight = refinedWeight
-            bot.dynamic_margin = dynamicMargin
-            bot.downturn_protection = downturnProtection
-            session["message"] = "Bot Config updated!"
             bot.update()
+            message = db.Message([0,bot.user_id,'INFO',"Bot Name Changed!"])
+            message.post()
+
+        if margin != bot.margin:
+            bot.margin = margin
+            bot.update()
+            message = db.Message([0,bot.user_id,'INFO',"Trading Margin Updated!"])
+            message.post()
+
+        if refinedWeight != bot.refined_weight:
+            bot.refined_weight = refinedWeight
+            bot.update()
+            msg = "Refined Weight Enabled!" if refinedWeight else "Refined Weight Disabled!"
+            message = db.Message([0,bot.user_id,'INFO',msg])
+            message.post()
+
+        if dynamicMargin != bot.dynamic_margin:
+            bot.dynamic_margin = dynamicMargin
+            bot.update()
+            msg = "Dynamic Margin Enabled!" if dynamicMargin else "Dynamic Margin Disabled!"
+            message = db.Message([0,bot.user_id,'INFO',msg])
+            message.post()
+
+        if downturnProtection != bot.downturn_protection:
+            bot.downturn_protection = downturnProtection
+            bot.update()
+            msg = "Downturn Protection Enabled!" if downturnProtection else "Downturn Protection Disabled!"
+            message = db.Message([0,bot.user_id,'INFO',msg])
+            message.post()
         if active != bot.active:
             bot.active = active
             bot.update()
