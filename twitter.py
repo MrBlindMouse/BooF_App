@@ -14,4 +14,9 @@ def xPost(message):
     url = "https://api.twitter.com/2/tweets"
     payload = {"text":message}
     result = requests.post(url, auth=auth, json=payload)
-    result.raise_for_status()
+    if result.status_code == 201:
+        print("X update success!")
+    else:
+        print("Error posting to X:")
+        print(result.reason)
+        print(result.content)
