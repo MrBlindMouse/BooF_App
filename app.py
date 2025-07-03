@@ -959,6 +959,10 @@ def reset():
 
     return render_template('reset.html', form=form, meta="Password Reset")
 
+@app.route('/confirmclear/<id>')
+def confirm_clear(id):
+    return render_template("confirmClear.html", meta="Confirm clearing transaction data", id=id)
+
 @app.route('/clear/<id>')
 def clear(id):
     if "id" not in session:
