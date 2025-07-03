@@ -922,10 +922,15 @@ def reset():
     if form.validate_on_submit():
         email=form.email.data
         user = db.getUsers(email=email)
+        if not user:
+            session["message"]="Reset email has been sent, please check your email for futher instructions."
+            return redirect(url_for("login"))
+
         passwordResetEmail(user)
         session["message"]="Reset email has been sent, please check your email for futher instructions."
         valr.logPost(f"Password Reset Requested for {user.email}, ID:{user.id}",'1')
         return redirect(url_for("login"))
+        
     return render_template('reset.html', form=form, meta="Password Reset")
 
 @app.route('/clear/<id>')
