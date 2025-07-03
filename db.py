@@ -390,9 +390,9 @@ class ActiveAccount:
         self.bot_id = int(data[1])
         self.base = data[2]
         self.volume = float(data[3])
-        self.swing = float(data[4])
-        self.direction = data[5]
-        self.stake = float(data[6])
+        self.stake = float(data[4])
+        self.swing = float(data[5])
+        self.direction = data[6]
         
     def post(self):
         with sqlite3.connect(db_path) as conn:
