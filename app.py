@@ -44,10 +44,19 @@ class signupForm(FlaskForm):
 def profileForm(user):
     class Form(FlaskForm):
         name = StringField("Username", validators=[DataRequired(),Length(min=3, max=20, message="Username must be 3-20 characters long")], default=user.name)
-        oldPassword = PasswordField("Previous Password", default=user.password)
-        password = PasswordField("New Password", validators=[Length(min=8, message="Password must be at least 8 characters")])
+        oldPassword = PasswordField("Previous Password")
+        password = PasswordField("New Password")
         confirm_password = PasswordField('Confirm New Password', validators=[EqualTo('password', message="Passwords must match")])
         submit = SubmitField('Update')
+
+        def validate_password(self, field):
+            if len(field.data) > 8:
+                if len(self.oldPassword.data) == 0:
+                    raise ValidationError("Confirm your previous password!")
+            elif len(field.data) > 0:
+                raise ValidationError("Password must be at least 8 characters")
+            elif len(field.data) == 0 and len(self.oldPassword.data) != 0:
+                raise ValidationError("Please enter your new password.")
     return Form()
 
 class createBotForm(FlaskForm):
@@ -259,7 +268,6 @@ def signup():
         valr.logPost("New user signed up",'1')
         return redirect(url_for('login'))
     return render_template("signup.html", form=form, meta="BooF Signup")
-
 
 @app.route('/home')
 def home():
@@ -535,7 +543,6 @@ def botreport(id):
     data["cost"] = credit["credit"]
     return render_template("report.html", data=data, meta="Bot Performance Report")
 
-
 @app.route('/botconfig/<id>', methods=["POST","GET"])
 def botconfig(id):
     if "id" not in session:
@@ -694,6 +701,9 @@ def config():
             user.password = form.password.data
             user.update()
             message = db.Message([0, user.id, "WARNING", "Password Updated!"])
+            message.post()
+        elif form.oldPassword.data and form.oldPassword.data != user.password:
+            message = db.Message([0, user.id, "ERROR", "Incorrect Password"])
             message.post()
 
         return redirect(url_for('home'))
