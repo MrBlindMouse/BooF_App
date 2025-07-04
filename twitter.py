@@ -1,41 +1,18 @@
-import json, requests
-from requests_oauthlib import OAuth1
+import requests
+import tweepy
 from dotenv import dotenv_values
 import valr
 
 envConfig = dotenv_values(".env")
-xClientID = envConfig["X_CLIENT_ID"]
-xClientSecret = envConfig["X_CLIENT_SECRET"]
+clientID = envConfig["X_CLIENT_ID"]
+clientSecret = envConfig["X_CLIENT_SECRET"]
+accessToken = envConfig["X_TOKEN"]
+accessSecret = envConfig["X_TOKEN_SECRET"]
 
-def xBearerToken(clientID, clientSecret):
-    url = "https://api.twitter.com/oauth2/token"
-    auth = (clientID, clientSecret)
-    data = {"grant_type": "client_credentials"}
-    
-    response = requests.post(url, auth=auth, data=data)
-    if response.status_code != 200:
-        print("Error fetching Bearer Token:")
-        print(response.reason, response.json())
-        return None
-    return response.json().get("access_token")
 
-def xPost(message):
-    token = xBearerToken(xClientID, xClientSecret)
-    if not token:
-        return
-
-    url = "https://api.twitter.com/2/tweets"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    payload = {"text": message}
-    
-    result = requests.post(url, headers=headers, json=payload)
-    if result.status_code == 201:
-        print("X update success!")
-        print(result.content)
-    else:
-        print("Error posting to X:")
-        print(result.reason)
-        print(result.content)
+def sendTweet(msg):
+    client = tweepy.Client(consumer_key=clientID, consumer_secret=clientSecret, access_token=accessToken, access_token_secret=accessSecret)
+    result = client.create_tweet(msg)
+    print("Tweet Response:")
+    print(result.reason)
+    print(result.content)
