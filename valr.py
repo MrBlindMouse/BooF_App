@@ -1842,7 +1842,7 @@ def xUpdate(config=Config):
         fire = '🌧️'
     msg += f". And the Greater Market Trend is {trunc(generalTrend,2)} {fire}"
     msg += ". Brought to you by https://boof-bots.com, and https://valr.com #crypto #tradingbot #hodl"
-    twitter.xPost(msg)
+    twitter.sendTweet(msg)
 
 
 def thread_update_loop(lock, session, config=Config):
