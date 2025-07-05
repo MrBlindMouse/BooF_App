@@ -1868,7 +1868,7 @@ if __name__ == "__main__":
     db.setupDB()
     internalSession = createSession(10) #For public api data, ie. ticker list and prices
 
-    running = "once"
+    running = "running"
 
     config = Config()
     dataLock = threading.Lock()
