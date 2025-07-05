@@ -8,4 +8,4 @@ if __name__ == "__main__":
 
     print("Prod server running!!!")
 
-    app.run()
+    app.run(port="5005")
