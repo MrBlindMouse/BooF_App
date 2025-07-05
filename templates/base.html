@@ -15,8 +15,7 @@
         <div class="side"></div>
         <div class="center">
             <br>
-            <a href="{{ url_for('home') }}"><img src="{{ url_for('static',filename='images/boof.png') }}" alt="The BooF Logo" style="width: 320px; display:flex; margin: auto;"/></a>
-            <br>
+            <h1><a href="{{ url_for('home') }}"><img src="{{ url_for('static',filename='images/boof.png') }}" alt="The BooF Bot's Logo" style="width: 320px; display:flex; margin: auto;"/></a></h1>
             {% if messages %}
             <div class="message">
                 {% for message in messages %}

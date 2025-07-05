@@ -144,7 +144,16 @@ class Config():
                         minValue = float(summaryResult["markPrice"])*float(details["minBaseAmount"])
                         if minValue < float(details["minQuoteAmount"]):
                             minValue = float(details["minQuoteAmount"])
-                        tickerTrend = findTrend(session,details["symbol"])
+                        tickerTrend = {
+                            "trend":1,
+                            "rsi":50,
+                            "atr":0,
+                            "bars":[]
+                        }
+                        try:
+                            tickerTrend = findTrend(session,details["symbol"])
+                        except Exception as e:
+                            print(f"Exception find trend for {details["symbol"]}: {e}")
                         tickerDetails = {
                             "base": details["baseCurrency"],
                             "price": float(summaryResult["markPrice"]),
@@ -461,7 +470,7 @@ def findTrend(session, pair):
     result = session.get(url)
     if result.status_code == 200:
         result = result.json()
-        if len(result) > 60:
+        if len(result) > 61:
             shortTerm = 0
             longTerm = 0
             shortResult = session.get(shortUrl)
@@ -508,7 +517,7 @@ def findTrend(session, pair):
 
 
             return answer
-        elif len(result)>15:
+        elif len(result)>16:
             printLog(f"Bucket List for {pair} not sufficient for trend", True)
             print(f"\tBucket size:{len(result)}")
             shortResult = session.get(shortUrl)
@@ -1859,7 +1868,7 @@ if __name__ == "__main__":
     db.setupDB()
     internalSession = createSession(10) #For public api data, ie. ticker list and prices
 
-    running = "running"
+    running = "once"
 
     config = Config()
     dataLock = threading.Lock()
@@ -1879,7 +1888,7 @@ if __name__ == "__main__":
 
     if running != "running":
         printLog("Running once", True)
-        update_loop(internalSession,config)
+        config.updateTickers(dataLock, internalSession)
 
     else: #Main operation
         
@@ -1892,7 +1901,7 @@ if __name__ == "__main__":
         schedule.every().day.at("15:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
         schedule.every().day.at("21:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
 
-        schedule.every().day.at("12:00").do(xUpdate, config=config)
+        #schedule.every().day.at("12:00").do(xUpdate, config=config)
 
         try:
             while True:

@@ -8,10 +8,12 @@ clientID = envConfig["X_KEY"]
 clientSecret = envConfig["X_SECRET"]
 accessToken = envConfig["X_TOKEN"]
 accessSecret = envConfig["X_TOKEN_SECRET"]
+oathClientSecret = envConfig["OAUTH2_CLIENT_SECRET"]
 
 
 def sendTweet(msg):
-    client = tweepy.Client(consumer_key=clientID, consumer_secret=clientSecret, access_token=accessToken, access_token_secret=accessSecret)
+    oathHandler = tweepy.OAuth2UserHandler(client_id=clientID, redirect_uri="https://boof-bots.com",scope=["tweet.write"], client_secret=oathClientSecret)
+    client = tweepy.Client()
     result = client.create_tweet(text=msg)
     print("Tweet Response:")
     print(result.reason)
