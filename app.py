@@ -3,7 +3,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, BooleanField, PasswordField, HiddenField, SelectField, IntegerField, RadioField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, NumberRange
 from dotenv import dotenv_values
-import time, json
+import time, json, requests
 import hashlib, base64, hmac
 import shortuuid, uuid
 
@@ -21,6 +21,9 @@ LOCKOUT_TIME = 15*60
 paypalID = envConfig["PAYPAL_ID"]
 paypalSecret = envConfig["PAYPAL_SECRET"]
 paypalMode = envConfig["PAYPAL_MODE"]
+
+turnstileKey = envConfig["TURNSTILE_KEY"]
+turnstileSecret = envConfig["TURNSTILE_SECRET"]
 
 # Forms
 class loginForm(FlaskForm):
@@ -212,6 +215,23 @@ def login():
             return redirect(url_for('login'))
     else:
         if form.validate_on_submit():
+            turnstileToken = request.form.get('cf-turnstile-response')
+            if not turnstileToken:
+                session["error"] = "Turnstile failed!"
+                return redirect(url_for('login'))
+            url = "https://challenges.cloudflare.com/turnstile/v0/siteverify" 
+            data=f'secret={turnstileSecret}&response={turnstileToken}'       
+            result = requests.post(url=url, data=data)
+            try:
+                result.raise_for_status()
+                jsonResult = result.json()
+                if jsonResult["success"] != True:
+                    session["error"] = "Turnstile verification failed! Are you a bot?"
+                    return redirect(url_for('login'))
+            except Exception as e:
+                session["error"] = "Turnstile verification failed!"
+                return redirect(url_for('login'))
+
             email = form.email.data
             password = form.password.data
             permanent = form.permanent.data
@@ -252,6 +272,22 @@ def login():
 def signup():
     form = signupForm()
     if form.validate_on_submit():
+        turnstileToken = request.form.get('cf-turnstile-response')
+        if not turnstileToken:
+            session["error"] = "Turnstile failed!"
+            return redirect(url_for('login'))
+        url = "https://challenges.cloudflare.com/turnstile/v0/siteverify" 
+        data=f'secret={turnstileSecret}&response={turnstileToken}'       
+        result = requests.post(url=url, data=data)
+        try:
+            result.raise_for_status()
+            jsonResult = result.json()
+            if jsonResult["success"] != True:
+                session["error"] = "Turnstile verification failed! Are you a bot?"
+                return redirect(url_for('login'))
+        except Exception as e:
+            session["error"] = "Turnstile verification failed!"
+            return redirect(url_for('login'))
         ts = int(time.time())
         name = form.name.data
         email = form.email.data
@@ -267,7 +303,7 @@ def signup():
         session["message"] = "Signup Successful! Please log in using email and password"
         valr.logPost("New user signed up",'1')
         return redirect(url_for('login'))
-    return render_template("signup.html", form=form, meta="BooF Signup")
+    return render_template("signup.html", form=form, turnstileKey=turnstileKey, meta="BooF Signup")
 
 @app.route('/home')
 def home():
@@ -956,6 +992,24 @@ def update_subscription():
 def reset():
     form = createResetForm()
     if form.validate_on_submit():
+        turnstileToken = request.form.get('cf-turnstile-response')
+        if not turnstileToken:
+            session["error"] = "Turnstile failed!"
+            return redirect(url_for('login'))
+        url = "https://challenges.cloudflare.com/turnstile/v0/siteverify" 
+        data=f'secret={turnstileSecret}&response={turnstileToken}'       
+        result = requests.post(url=url, data=data)
+        try:
+            result.raise_for_status()
+            jsonResult = result.json()
+            if jsonResult["success"] != True:
+                session["error"] = "Turnstile verification failed! Are you a bot?"
+                return redirect(url_for('login'))
+        except Exception as e:
+            session["error"] = "Turnstile verification failed!"
+            return redirect(url_for('login'))
+
+
         email=form.email.data
         user = db.getUsers(email=email)
         if not user:
