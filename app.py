@@ -220,8 +220,12 @@ def login():
                 session["error"] = "Turnstile failed!"
                 return redirect(url_for('login'))
             url = "https://challenges.cloudflare.com/turnstile/v0/siteverify" 
-            data=f'secret={turnstileSecret}&response={turnstileToken}'       
-            result = requests.post(url=url, data=data)
+            data={
+                'secret': turnstileSecret,
+                'response':turnstileToken
+            }
+            headers = {'Content-Type':'application/json'}
+            result = requests.post(url=url, data=json.dumps(data), headers=headers)
             try:
                 result.raise_for_status()
                 jsonResult = result.json()
@@ -278,8 +282,12 @@ def signup():
             session["error"] = "Turnstile failed!"
             return redirect(url_for('login'))
         url = "https://challenges.cloudflare.com/turnstile/v0/siteverify" 
-        data=f'secret={turnstileSecret}&response={turnstileToken}'       
-        result = requests.post(url=url, data=data)
+        data={
+            'secret': turnstileSecret,
+            'response':turnstileToken
+        }
+        headers = {'Content-Type':'application/json'}
+        result = requests.post(url=url, data=json.dumps(data), headers=headers)
         try:
             result.raise_for_status()
             jsonResult = result.json()
@@ -998,8 +1006,12 @@ def reset():
             session["error"] = "Turnstile failed!"
             return redirect(url_for('login'))
         url = "https://challenges.cloudflare.com/turnstile/v0/siteverify" 
-        data=f'secret={turnstileSecret}&response={turnstileToken}'       
-        result = requests.post(url=url, data=data)
+        data={
+            'secret': turnstileSecret,
+            'response':turnstileToken
+        }
+        headers = {'Content-Type':'application/json'}
+        result = requests.post(url=url, data=json.dumps(data), headers=headers)
         try:
             result.raise_for_status()
             jsonResult = result.json()
