@@ -266,7 +266,7 @@ def login():
             })
         session.pop("message", None)
 
-    return render_template('login.html', form=form, messages=message, meta="Boof, Smart Trading Bots for Valr")
+    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="Boof, Smart Trading Bots for Valr")
 
 @app.route('/signup', methods=["GET","POST"])
 def signup():
@@ -1021,7 +1021,7 @@ def reset():
         valr.logPost(f"Password Reset Requested for {user.email}, ID:{user.id}",'1')
         return redirect(url_for("login"))
 
-    return render_template('reset.html', form=form, meta="Password Reset")
+    return render_template('reset.html', form=form, turnstileKey=turnstileKey, meta="Password Reset")
 
 @app.route('/confirmclear/<id>')
 def confirm_clear(id):
