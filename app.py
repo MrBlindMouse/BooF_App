@@ -233,8 +233,7 @@ def login():
                     session["error"] = "Turnstile verification failed! Are you a bot?"
                     return redirect(url_for('login'))
             except Exception as e:
-                print(f'Trunstile Error: {e}')
-                session["error"] = f'Trunstile Error: {e}'
+                session["error"] = "Turnstile verification failed!"
                 return redirect(url_for('login'))
 
             email = form.email.data
