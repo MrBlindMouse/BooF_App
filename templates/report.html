@@ -41,8 +41,8 @@
     <p>&emsp;Profit per volume: 0 {{ data.currency }}</p>
     {% endif %}
     <p>&emsp;Minimum Trade Volume: {{ [account.volumeBought,account.volumeSold]|min()|round(8) }}</p>
-    <p>&emsp;Realized Profit: {{ (([account.volumeBought,account.volumeSold]|min())*(account.avgSellPrice-account.avgBuyPrice))|round(3) }} {{ data.currency }}</p><br><br>
-    <p>&emsp;Trading Fees: {{ account.fees|round(3) }} {{ data.currency }}</p>
+    <p>&emsp;Realized Profit: {{ (([account.volumeBought,account.volumeSold]|min())*(account.avgSellPrice-account.avgBuyPrice))|round(3) }} {{ data.currency }}</p>
+    <p>&emsp;Trading Fees: {{ account.fees|round(3) }} {{ data.currency }}</p><br><br>
     {% endfor %}
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>
