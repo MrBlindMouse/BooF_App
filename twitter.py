@@ -1,4 +1,4 @@
-import requests
+import requests, json
 import tweepy
 from dotenv import dotenv_values
 import valr
@@ -13,7 +13,7 @@ oauthBearer = envConfig["X_BEARER_TOKEN"]
 
 
 def sendTweet(msg):
-    client = tweepy.Client(bearer_token=oauthBearer)
+    client = tweepy.Client(bearer_token=oauthBearer, consumer_key=clientID, consumer_secret=clientSecret, access_token=accessToken, access_token_secret=accessSecret)
     result = client.create_tweet(text=msg)
-    print(result.reason)
-    print(result.content)
+    print(json.dumps(result, indent=4))
+
