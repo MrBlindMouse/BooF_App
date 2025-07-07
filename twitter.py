@@ -12,9 +12,8 @@ oathClientSecret = envConfig["OAUTH2_CLIENT_SECRET"]
 
 
 def sendTweet(msg):
-    oathHandler = tweepy.OAuth2UserHandler(client_id=clientID, redirect_uri="https://boof-bots.com",scope=["tweet.write"], client_secret=oathClientSecret)
-    client = tweepy.Client()
-    result = client.create_tweet(text=msg)
+    oauthHandler = tweepy.OAuth1UserHandler(clientID, clientSecret, access_token=accessToken, access_token_secret=accessSecret)
+    api = tweepy.API(oauthHandler)
+    result = api.update_status(msg)
     print("Tweet Response:")
-    print(result.reason)
-    print(result.content)
+    print(result)
