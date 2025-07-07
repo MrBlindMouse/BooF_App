@@ -12,8 +12,7 @@ oathClientSecret = envConfig["OAUTH2_CLIENT_SECRET"]
 
 
 def sendTweet(msg):
-    oauthHandler = tweepy.OAuth1UserHandler(clientID, clientSecret, access_token=accessToken, access_token_secret=accessSecret)
-    api = tweepy.API(oauthHandler)
-    result = api.update_status(msg)
+    client = tweepy.Client(consumer_key=clientID, consumer_secret=clientSecret, access_token=accessToken, access_token_secret=accessSecret)
+    client.create_tweet(text=msg, user_auth=True)
     print("Tweet Response:")
     print(result)
