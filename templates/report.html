@@ -11,7 +11,8 @@
     <p>Cost: {{ data.cost|round(2) }} Credits</p><br>
     <p>Current Equity: {{ data.equity|round(2) }} {{ data.currency }}</p>
     <p>Active Accounts: {{ data.accounts|length }}</p>
-    <p>Trade Margin: {{ data.margin }}%</p><br>
+    <p>Trade Margin: {{ data.margin }}%</p>
+    <p>Trading Fees: {{ data.totalFees|round(3) }} {{ data.currency }}</p><br>
     <p>Balance Amount: {{ data.balance|round(2) }} {{ data.currency }}</p>
     <p>Market Trend: {{ data.trend|round(3) }}</p>
     {% if data.weightedBalance != 0 %}
@@ -33,6 +34,8 @@
     <p>&emsp;Average Buy Price: {{ account.avgBuyPrice|round(4) }} {{ data.currency }}</p><br>
     <p>&emsp;Volume Sold: {{ account.volumeSold|round(8) }}</p>
     <p>&emsp;Value Sold: {{ account.valueSold|round(2) }} {{ data.currency }}</p>
+    <p>&emsp;Value Sold: {{ account.valueSold|round(2) }} {{ data.currency }}</p>
+    <p>&emsp;Trading Fees: {{ account.fees|round(3) }} {{ data.currency }}</p>
     <p>&emsp;Average Sell Price: {{ account.avgSellPrice|round(4) }} {{ data.currency }}</p><br>
     {% if [account.volumeBought,account.volumeSold]|min() > 0 %}
     <p>&emsp;Profit per volume: {{ (account.avgSellPrice-account.avgBuyPrice)|round(4) }} {{ data.currency }}</p>

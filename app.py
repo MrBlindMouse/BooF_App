@@ -450,24 +450,29 @@ def botstats(id):
         buyValue = 0
         sellVolume = 0
         sellValue = 0
+        fees = 0
         for line in transactions:
             if line.base == account.base and line.quote == bot.currency and line.ts > (now-31536000):
                 if line.type == "BUY":
+                    fees += line.fee
                     buyVolume += line.volume
                     buyValue += line.value
                 elif line.type == "SELL":
+                    fees += line.fee
                     sellVolume += line.volume
                     sellValue += line.value
         realizedProfit = 0
         if sellVolume != 0 and buyVolume != 0:
-            realizedProfit = ((sellValue/sellVolume)-(buyValue/buyVolume))*min(sellVolume,buyVolume)
+            realizedProfit = (((sellValue/sellVolume)-(buyValue/buyVolume))*min(sellVolume,buyVolume))-fees
         botResult["realizedProfit"] += realizedProfit
         for line in transactions:
             if line.base == account.base and line.quote == bot.currency and line.ts > (now-31536000):
                 if line.type == "INVEST":
+                    fees += line.fee
                     buyVolume += line.volume
                     buyValue += line.value
                 elif line.type == "WITHDRAW":
+                    fees += line.fee
                     sellVolume += line.volume
                     sellValue += line.value
         if sellVolume > buyVolume:
@@ -480,7 +485,7 @@ def botstats(id):
             sellValue += diff*account.price(valrConfig)
         totalProfit = 0
         if sellVolume != 0 and buyVolume != 0:
-            totalProfit = ((sellValue/sellVolume)-(buyValue/buyVolume))*sellVolume
+            totalProfit = (((sellValue/sellVolume)-(buyValue/buyVolume))*sellVolume)-fees
         botResult["profit"] += totalProfit
 
     ts = int(time.time())
@@ -584,6 +589,10 @@ def botreport(id):
             accountEntry["avgSellPrice"] = accountEntry["valueSold"]/accountEntry["volumeSold"]
         
         data["accounts"].append(accountEntry)
+    feeTotal = 0
+    for entry in data["accounts"]:
+        feeTotal += entry["fees"]
+    data["totalFees"] = feeTotal
     credit = db.getCredits(bot_id=id)
     data["runtime"] = credit["time"]
     data["cost"] = credit["credit"]
