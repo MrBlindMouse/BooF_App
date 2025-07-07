@@ -13,7 +13,7 @@ oauthBearer = envConfig["X_BEARER_TOKEN"]
 
 
 def sendTweet(msg):
-    client = tweepy.Client(bearer_token=oauthBearer, consumer_key=clientID, consumer_secret=clientSecret, access_token=accessToken, access_token_secret=accessSecret)
+    client = tweepy.Client(consumer_key=clientID, consumer_secret=clientSecret, access_token=accessToken, access_token_secret=accessSecret)
     result = client.create_tweet(text=msg)
     print(json.dumps(result, indent=4))
 
