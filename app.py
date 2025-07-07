@@ -566,10 +566,12 @@ def botreport(id):
             "volumeSold":0,
             "valueSold":0,
             "avgBuyPrice":0,
-            "avgSellPrice":0
+            "avgSellPrice":0,
+            "fees":0
         }
         for entry in transactions:
             if entry.base == account.base and entry.quote == bot.currency:
+                accountEntry["fees"] += entry.fee
                 if entry.type == "BUY":
                     accountEntry["volumeBought"] += entry.volume
                     accountEntry["valueBought"] += entry.value

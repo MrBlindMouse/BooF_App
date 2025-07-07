@@ -334,7 +334,7 @@ def updateCurrency(newCurrency, bot=db.Bot):
                 break
         result = trade("SELL",account.base,bot.currency,bot.key,bot.secret,account.volume,decimal)
         if result:
-            transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+            transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
             transaction.post()
         account.delete()
     bot.currency = newCurrency
@@ -875,7 +875,7 @@ def checkBalances(config = Config, bot = db.Bot):
                             if volume*price > minValue:
                                 result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, volume, decimal)
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                                     transaction.post()
                             if account.swing != 0:
                                 account.swing = 0
@@ -900,14 +900,14 @@ def checkBalances(config = Config, bot = db.Bot):
                             if float(entry["total"]) > 1: #Min base amount
                                 result = trade("SELL", "ZAR", "USDC", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDC","ZAR",int(time.time()), result["fee"]])
                                     transaction.post()
                         elif entry["currency"] == "USDT":
                             found = True
                             if float(entry["total"]) > 1: #Min base amount
                                 result = trade("SELL", "ZAR", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDT","ZAR",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDT","ZAR",int(time.time()), result["fee"]])
                                     transaction.post()
                     elif bot.currency == "USDC":
                         if entry["currency"] == "USDC":
@@ -917,14 +917,14 @@ def checkBalances(config = Config, bot = db.Bot):
                             if float(entry["total"]) > 10: #Min quote amount
                                 result = trade("BUY", "ZAR", "USDC", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDC","ZAR",int(time.time()), result["fee"]])
                                     transaction.post()
                         elif entry["currency"] == "USDT":
                             found = True
                             if float(entry["total"]) > 1: #Min base amount
                                 result = trade("SELL", "USDC", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDT","USDC",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],"USDT","USDC",int(time.time()), result["fee"]])
                                     transaction.post()
                     elif bot.currency == "USDT":
                         if entry["currency"] == "USDT":
@@ -934,14 +934,14 @@ def checkBalances(config = Config, bot = db.Bot):
                             if float(entry["total"]) > 1: #Min quote amount
                                 result = trade("BUY", "USDC", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDT","USDC",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDT","USDC",int(time.time()), result["fee"]])
                                     transaction.post()
                         elif entry["currency"] == "ZAR":
                             found = True
                             if float(entry["total"]) > 10: #Min quote amount
                                 result = trade("BUY", "ZAR", "USDT", bot.key, bot.secret, entry["available"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDT","ZAR",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],"USDT","ZAR",int(time.time()), result["fee"]])
                                     transaction.post()
                 else:
                     continue
@@ -984,7 +984,7 @@ def checkBalances(config = Config, bot = db.Bot):
                                 repeat = True
                                 result = trade("SELL", "ZAR", entry["currency"], bot.key, bot.secret, entry["available"], ticker["decimal"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"ZAR",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"ZAR",int(time.time()), result["fee"]])
                                     transaction.post()
                             break
                 else:
@@ -999,7 +999,7 @@ def checkBalances(config = Config, bot = db.Bot):
                                 repeat = True
                                 result = trade("SELL", "USDC", entry["currency"], bot.key, bot.secret, entry["available"], ticker["decimal"])
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"USDC",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"USDC",int(time.time()), result["fee"]])
                                     transaction.post()
                             break
                 else:
@@ -1014,7 +1014,7 @@ def checkBalances(config = Config, bot = db.Bot):
                                 repeat = True
                                 result = trade("SELL", "USDT", entry["currency"], bot.key, bot.secret, entry["available"], int(ticker['decimal']))
                                 if result:
-                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"USDT",int(time.time())])
+                                    transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],entry["currency"],"USDT",int(time.time()), result["fee"]])
                                     transaction.post()
                             break
                 else:
@@ -1053,7 +1053,7 @@ def liquidateBot(config=Config, bot=db.Bot):
         if account.volume > minTrade:
             result = trade("SELL",bot.currency,account.base,bot.key,bot.secret,account.volume,decimal)
             if result:
-                transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                 transaction.post()
                 account.volume -= result["volume"]
                 account.update()
@@ -1151,7 +1151,7 @@ def setAccounts(config = Config, bot = db.Bot):
                 if account.base == entry["base"]:
                     result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, account.volume, entry["decimal"])
                     if result:
-                        transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                        transaction = db.Transaction([0,bot.id,"WITHDRAW",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                         transaction.post()
                         bot.equity += result["value"]
                         bot.update()
@@ -1182,7 +1182,7 @@ def setAccounts(config = Config, bot = db.Bot):
             if not found:
                 result = trade("BUY", bot.currency, newAccount["base"], bot.key, bot.secret, bot.balance_value)
                 if result:
-                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],newAccount["base"],bot.currency,int(time.time())])
+                    transaction = db.Transaction([0,bot.id,"INVEST",result["volume"],result["value"],newAccount["base"],bot.currency,int(time.time()), result["fee"]])
                     transaction.post()
                     bot.equity -= result["value"]
                     bot.update()
@@ -1242,7 +1242,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 sellVolume = (value-balanceValue)/price
                 result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, sellVolume, decimal)
                 if result:
-                    transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                    transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                     transaction.post()
                     account.volume -= result["volume"]
                     account.update()
@@ -1259,7 +1259,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 sellVolume = (value-balanceValue)/price
                 result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, sellVolume, decimal)
                 if result:
-                    transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                    transaction = db.Transaction([0,bot.id,"SELL",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                     transaction.post()
                     account.volume -= result["volume"]
                     account.update()
@@ -1276,7 +1276,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 if buyValue < bot.quote_balance:
                     result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue, decimal)
                     if result:
-                        transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                        transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                         transaction.post()
                         account.volume += result["volume"]
                         account.update()
@@ -1293,7 +1293,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 buyValue = balanceValue-value
                 result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue, decimal)
                 if result:
-                    transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time())])
+                    transaction = db.Transaction([0,bot.id,"BUY",result["volume"],result["value"],account.base,bot.currency,int(time.time()), result["fee"]])
                     transaction.post()
                     account.volume += result["volume"]
                     account.update()

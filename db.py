@@ -58,7 +58,8 @@ def setupDB():
             "value":"FLOAT NOT NULL",
             "base":"TEXT NOT NULL",
             "quote":"TEXT NOT NULL",
-            "ts":"INTEGER NOT NULL"
+            "ts":"INTEGER NOT NULL",
+            "fee":"FLOAT DEFAULT 0"
             }},
         {"table_name":"credit_table",
         "table_columns":{
@@ -481,12 +482,13 @@ class Transaction:
         self.base = data[5]
         self.quote = data[6]
         self.ts = int(data[7])
+        self.fee = float(data[8])
 
     def post(self):
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-            query = "INSERT INTO transaction_table(bot_id, type, volume, value, base, quote, ts) VALUES(?, ?, ?, ?, ?, ?, ?)"
-            cursor.execute(query,[self.bot_id, self.type, self.volume, self.value, self.base, self.quote, self.ts])
+            query = "INSERT INTO transaction_table(bot_id, type, volume, value, base, quote, ts, fee) VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
+            cursor.execute(query,[self.bot_id, self.type, self.volume, self.value, self.base, self.quote, self.ts, self.fee])
             conn.commit()
             
     def delete(self):
