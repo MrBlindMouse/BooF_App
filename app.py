@@ -270,7 +270,7 @@ def login():
             })
         session.pop("message", None)
 
-    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="Boof, Smart Trading Bots for Valr")
+    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="BooF, Smart Trading Bots for Valr")
 
 @app.route('/signup', methods=["GET","POST"])
 def signup():
@@ -677,7 +677,7 @@ def howto():
     
 @app.route('/terms')
 def terms():
-    return render_template('terms.html', meta="BooF Terms and Conditions")
+    return render_template('terms.html', meta="BooF Bots Terms and Conditions")
 
 @app.route('/verify/<uid>')
 def verify(uid):
@@ -706,7 +706,7 @@ def verify(uid):
         message = db.Message([0,user.id,"INFO","Your account has successfully been verified!"])
         message.post()
         token.delete()
-        return render_template("verify.html", type="VERIFY", user=user.name, meta="BooF Verification")
+        return render_template("verify.html", type="VERIFY", user=user.name, meta="BooF User Verification")
     elif token.type == "RESET":
         newPassword = shortuuid.ShortUUID().random(8)
         user.password = newPassword
@@ -714,7 +714,7 @@ def verify(uid):
         message = db.Message([0, user.id,"WARNING","Your password has been reset, change your password ASAP!"])
         message.post()
         token.delete()
-        return render_template("verify.html", user=user.name, type="RESET", password=newPassword, meta="BooF Verification")
+        return render_template("verify.html", user=user.name, type="RESET", password=newPassword, meta="BooF Password Reset Verification")
     return abort(404)
 
 @app.route('/config', methods=["GET","POST"])
@@ -802,7 +802,7 @@ def market():
         "USDTList":valrConfig.USDT,
         "USDTTrend":trunc(usdtTrend,2),
     }
-    return render_template("market.html", details=details, meta="Crypto Market Analysis")
+    return render_template("market.html", details=details, meta="Crypto Market Technical Analysis")
 
 @app.route('/addbot', methods=["POST","GET"])
 def addbot():
