@@ -590,9 +590,13 @@ def botreport(id):
         
         data["accounts"].append(accountEntry)
     feeTotal = 0
+    profitRealized = 0
     for entry in data["accounts"]:
         feeTotal += entry["fees"]
+        profitRealized += min(entry["volumeBought"],entry["volumeSold"])*(entry["avgSellPrice"]-entry["avgBuyPrice"]) if entry["volumeBought"] > 0 and entry["volumeSold"] > 0 else 0
+
     data["totalFees"] = feeTotal
+    data["realizedProfit"] = profitRealized
     credit = db.getCredits(bot_id=id)
     data["runtime"] = credit["time"]
     data["cost"] = credit["credit"]
