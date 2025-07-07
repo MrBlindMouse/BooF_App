@@ -2,4 +2,4 @@ User-agent: *
 Disallow: /home
 Disallow: /signup
 Disallow: /reset
-Sitemap: https://www.boof-bots.com/sitemap.xml
+Sitemap: https://boof-bots.com/sitemap.xml
