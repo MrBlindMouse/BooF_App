@@ -811,11 +811,11 @@ def market():
     #usdtTrend = ((usdtTrend/len(valrConfig.USDT))+((usdtRSI/len(valrConfig.USDT))/50))/2
     details={
         "ZARList":valrConfig.ZAR,
-        "ZARTrend":trunc(zarTrend,2),
+        "ZARTrend":trunc(zarTrend,3),
         "USDCList":valrConfig.USDC,
-        "USDCTrend":trunc(usdcTrend,2),
+        "USDCTrend":trunc(usdcTrend,3),
         "USDTList":valrConfig.USDT,
-        "USDTTrend":trunc(usdtTrend,2),
+        "USDTTrend":trunc(usdtTrend,3),
     }
     return render_template("market.html", details=details, meta="Crypto Market Technical Analysis")
 
