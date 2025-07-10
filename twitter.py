@@ -8,8 +8,6 @@ clientID = envConfig["X_KEY"]
 clientSecret = envConfig["X_SECRET"]
 accessToken = envConfig["X_TOKEN"]
 accessSecret = envConfig["X_TOKEN_SECRET"]
-oathClientSecret = envConfig["OAUTH2_CLIENT_SECRET"]
-oauthBearer = envConfig["X_BEARER_TOKEN"]
 
 
 def sendTweet(msg):
