@@ -500,7 +500,7 @@ def findTrend(session, pair):
             
             longTerm = float(result[61]["close"])
             for line in list(reversed(result))[:60]:
-                longTerm = ((longTerm*13) + float(line["close"]))/14
+                longTerm = ((longTerm*6) + float(line["close"]))/7
             #longTerm = longTerm/len(result[:60])
             answer["trend"]=trunc((shortTerm/longTerm),4)
 
