@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="sub">
-    <h2>Welcome to BooF</h2>
-    <p ><b>BooF-Bots</b> is an automated, self-regulating crypto trading bot designed for the <a style="color: rgb(18, 9, 37); text-decoration: none;" href="https://www.valr.com">VALR</a> crypto exchange platform. Utilizing a rebalancing (mean-reversion) strategy, BooF capitalizes on cryptocurrency market volatility to optimize returns. Visit our <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('about') }}">About</a> and <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('howto') }}">How-To</a> pages to learn more, explore current <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('market') }}">Market Trends</a>, or <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('signup') }}">Sign Up</a> to get start trading today!</p>
+    <h2>Welcome to BooF Bots</h2>
+    <p ><b>BooF Bots</b> is an automated, self-regulating crypto trading bot designed for the <a style="color: rgb(18, 9, 37); text-decoration: none;" href="https://www.valr.com">VALR</a> crypto exchange platform. Utilizing a rebalancing (mean-reversion) strategy, BooF capitalizes on cryptocurrency market volatility to optimize returns. Visit our <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('about') }}">About</a> and <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('howto') }}">How-To</a> pages to learn more, explore current <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('market') }}">Market Trends</a>, or <a style="color: rgb(16, 10, 29); text-decoration: none;" href="{{ url_for('signup') }}">Sign Up</a> to get start trading today!</p>
     <p style="text-align:center;">You need a valid <a style="color: rgb(18, 9, 37); text-decoration: none;" href="https://www.valr.com">VALR</a> account to use BooF Bots</p>
     <h3>Log In</h3>
     <div style="text-align:center;">
@@ -26,7 +26,7 @@
             {{ form.submit }}
         </form>
     </div>
-    <h3>Sign up now for a 4 week trail period</h3>
+    <h3>Sign up now for a 4 week trial period</h3>
     <div class="button-container">
         <a class="button" href="{{ url_for('signup') }}">~ Signup here ~</a>
         <a class="button" href="{{ url_for('reset') }}">~ Reset Password ~</a>
