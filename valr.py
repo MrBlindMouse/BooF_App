@@ -1851,7 +1851,7 @@ def xUpdate(config=Config):
     
     generalTrend = findGeneralTrend('USDT', config)
 
-    msg = "Daily Crypto Trend(USDC) Update: "
+    msg = "Crypto Trend Update: "
     trendStrings = []
     for entry in config.USDC:
         trendStrings.append(f"{entry["base"]} Trend:{trunc(entry["trend"],2)} RSI:{int(entry["rsi"])}")
@@ -1860,9 +1860,9 @@ def xUpdate(config=Config):
     if generalTrend > 1.05:
         fire =  '🚀'
     elif generalTrend < 0.95:
-        fire = ' 🌧️'
-    msg += f". And the General Market Trend is {trunc(generalTrend,2)}{fire}. "
-    msg += "Brought to you by boof-bots.com, and valr.com #CryptoTrends #TradingBot #HODL"
+        fire = '🌧️'
+    msg += f". The General Market Trend is {trunc(generalTrend,2)}{fire}. "
+    msg += "Powered by boof-bots.com, and valr.com #CryptoTrends #TradingBot #HODL"
     twitter.sendTweet(msg)
 
 
