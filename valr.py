@@ -1198,13 +1198,13 @@ def setAccounts(config = Config, bot = db.Bot):
                     transaction.post()
                     bot.equity -= result["value"]
                     bot.update()
-                    account = db.ActiveAccount([0, bot.id, newAccount["base"], result["volume"], 0, "", 0])
-                    account.post()
-                    accounts.append(account)
+                    newAAccount = db.ActiveAccount([0, bot.id, newAccount["base"], result["volume"], 0, 0, ""])
+                    newAAccount.post()
+                    accounts.append(newAAccount)
                 else:
-                    account = db.ActiveAccount([0, bot.id, newAccount["base"], 0, 0, "", 0])
-                    account.post()
-                    accounts.append(account)
+                    newAAccount = db.ActiveAccount([0, bot.id, newAccount["base"], 0, 0, 0, ""])
+                    newAAccount.post()
+                    accounts.append(newAAccount)
                 difference -= 1
             if difference <= 0:
                 break

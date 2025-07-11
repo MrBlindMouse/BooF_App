@@ -384,7 +384,7 @@ def getBots(id=None, user_id=None):
 
 class ActiveAccount:
     """
-    New Active Account data list=[id:0, bot_id:{bot_id}, base:{base} volume:{0}, swing:{0}, direction:{"}, stake:{0}]
+    New Active Account data list=[id:0, bot_id:{bot_id}, base:{base} volume:{0}, stake:{0}, swing:{0}, direction:{"}]
     """
     def __init__(self,data):
         self.id = int(data[0])
