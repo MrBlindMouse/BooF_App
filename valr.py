@@ -1851,18 +1851,18 @@ def xUpdate(config=Config):
     
     generalTrend = findGeneralTrend('USDT', config)
 
-    msg = "Daily Crypto Price(USDC) Trends Update: "
+    msg = "Daily Crypto Trend(USDC) Update: "
     trendStrings = []
     for entry in config.USDC:
         trendStrings.append(f"{entry["base"]} Trend:{trunc(entry["trend"],2)} RSI:{int(entry["rsi"])}")
     msg += " | ".join(trendStrings)
     fire = ''
     if generalTrend > 1.05:
-        fire = '🚀'
+        fire =  '🚀'
     elif generalTrend < 0.95:
-        fire = '🌧️'
-    msg += f". And the Greater Market Trend is {trunc(generalTrend,2)} {fire}"
-    msg += ". Brought to you by https://boof-bots.com, and https://valr.com #CryptoTrends #TradingBot #HODL"
+        fire = ' 🌧️'
+    msg += f". And the General Market Trend is {trunc(generalTrend,2)}{fire}. "
+    msg += "Brought to you by boof-bots.com, and valr.com #CryptoTrends #TradingBot #HODL"
     twitter.sendTweet(msg)
 
 
@@ -1913,7 +1913,7 @@ if __name__ == "__main__":
         schedule.every().day.at("15:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
         schedule.every().day.at("21:00").do(thread_update_loop, lock=dataLock, session=internalSession, config=config)
 
-        #schedule.every().day.at("12:00").do(xUpdate, config=config)
+        schedule.every().day.at("12:00").do(xUpdate, config=config)
 
         try:
             while True:
