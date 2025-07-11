@@ -212,7 +212,7 @@ Reminders: ~
         if bots:
             for bot in bots:
                 bot.delete()
-        credits = returnCredits(user_id=self.id)
+        credits = getCredits(user_id=self.id, type="LIST")
         if credits:
             for credit in credits:
                 credit.delete()
@@ -540,7 +540,7 @@ class Credit:
             
     def delete(self):
         with sqlite3.connect(db_path) as connection:
-            query = "DELETE FROM user_model WHERE id=?"
+            query = "DELETE FROM credit_table WHERE id=?"
             data = [self.id]
             cursor = connection.cursor()
             cursor.execute(query,data)
