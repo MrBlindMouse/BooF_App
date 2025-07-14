@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="sub">
+    <h2>Something went wrong?!</h2>
+    <h3>An Error Code: {{ e.code }} was received.</h3>
+    <p>{{ e.name }}, {{ e.description}} </p>
+    <p>If this error persist please contact <a href="mailto:boof@bmd-studios.com">boof@bmd-studios.com</a></p>
+</div>
+<script>
+    setTimeout(function() {
+        window.location.href = "{{ url_for('login') }}";
+    }, 3000);
+</script>
+{% endblock %}

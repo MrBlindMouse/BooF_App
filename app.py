@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort, send_from_directory
+from werkzeug.exceptions import HTTPException
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, BooleanField, PasswordField, HiddenField, SelectField, IntegerField, RadioField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, NumberRange
@@ -1147,9 +1148,27 @@ def closeAccount():
     session.pop('id', default=None)
     return redirect(url_for('login'))
 
-@app.errorhandler(404)
-def pageNotFound(e):
-    return render_template('404.html', meta="Page not Found"), 404
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # pass through HTTP errors
+    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}")
+    if "id" in session:
+        session.pop('id', default=None)
+    if isinstance(e, HTTPException):
+        jsonE = {
+            "code":e.code,
+            "name":e.name,
+            "description":e.description
+        }
+        return render_template('error.html', e=jsonE, meta="Error Page")
+
+    session["error"] = {
+        "type":"ERROR",
+        "message":f"Error:'{e.code}', {e.name}"
+    }
+
+    return redirect(url_for('login'))
 
 @app.route('/robots.txt')
 @app.route('/sitemap.xml')
