@@ -1152,7 +1152,7 @@ def closeAccount():
 @app.errorhandler(Exception)
 def handle_exception(e):
     # pass through HTTP errors
-    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}")
+    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{request.origin}")
     if "id" in session:
         session.pop('id', default=None)
     if isinstance(e, HTTPException):
@@ -1161,14 +1161,14 @@ def handle_exception(e):
             "name":e.name,
             "description":e.description
         }
-        return render_template('error.html', e=jsonE, meta="Error Page")
+        return render_template('error.html', e=jsonE, meta="Error Page"), e.code
 
     session["error"] = {
         "type":"ERROR",
         "message":f"Error:'{e.code}', {e.name}"
     }
 
-    return redirect(url_for('login'))
+    return redirect(url_for('login')), e.code
 
 @app.route('/robots.txt')
 @app.route('/sitemap.xml')
