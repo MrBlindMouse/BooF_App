@@ -1152,7 +1152,10 @@ def closeAccount():
 @app.errorhandler(Exception)
 def handle_exception(e):
     # pass through HTTP errors
-    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{request.origin}")
+    str=""
+    for key, value in request.environ.items():
+        str+=f"{key}: {value}<br>"
+    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{str}")
     if "id" in session:
         session.pop('id', default=None)
     if isinstance(e, HTTPException):
