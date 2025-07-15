@@ -1165,7 +1165,7 @@ def handle_exception(e):
             "name":e.name,
             "description":e.description
         }
-        return render_template('error.html', e=jsonE, meta="Error Page"), e.code
+        return render_template('error.html', e=jsonE, meta=f"Error Page {e.code}: {e.name}"), e.code
 
     session["error"] = {
         "type":"ERROR",
