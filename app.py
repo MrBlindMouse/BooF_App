@@ -529,6 +529,7 @@ def botreport(id):
     data['accounts'] = []
     data['trend'] = 1
     data['balance'] = bot.balance_value
+    data['dynamicMargin'] = bot.dynamic_margin
     rsi = 0
     trend = 0
     currencyList = []
@@ -576,7 +577,7 @@ def botreport(id):
             "avgBuyPrice":0,
             "avgSellPrice":0,
             "fees":0,
-            "adjustedMargin":max(min((bot.margin*2+(atr*volatility))/3,bot.margin*1.2),bot.margin*0.8)
+            "adjustedMargin":max(min(((bot.margin*2)+(atr*volatility))/3,bot.margin*1.2),bot.margin*0.8)
         }
         for entry in transactions:
             if entry.base == account.base and entry.quote == bot.currency:
@@ -1155,11 +1156,6 @@ def closeAccount():
 @app.errorhandler(Exception)
 def handle_exception(e):
     # pass through HTTP errors
-    httpEnvirons = request.environ
-    str=""
-    str += f"IP: {httpEnvirons.get("HTTP_CF_CONNECTING_IP")}<br>"
-    str += f"Country: {httpEnvirons.get("HTTP_CF_IPCOUNTRY")}<br>"
-    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{str}")
     if "id" in session:
         session.pop('id', default=None)
     if isinstance(e, HTTPException):
@@ -1170,6 +1166,12 @@ def handle_exception(e):
         }
         return render_template('error.html', e=jsonE, meta=f"Error Page {e.code}: {e.name}"), e.code
 
+    httpEnvirons = request.environ
+    str=""
+    str += f"IP: {httpEnvirons.get("HTTP_CF_CONNECTING_IP")}<br>"
+    str += f"Country: {httpEnvirons.get("HTTP_CF_IPCOUNTRY")}<br>"
+    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{str}")
+    
     session["error"] = {
         "type":"ERROR",
         "message":f"Error:'{e.code}', {e.name}"
