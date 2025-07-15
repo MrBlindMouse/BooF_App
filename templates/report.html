@@ -23,6 +23,7 @@
     <p>Bot activity per account:</p>
     {% for account in data.accounts %}
     <p><b>{{ account.base }}</b></p>
+    <p>decimal:{{ account.decimal }}</p>
     <p>&emsp;Current Volume: {{ account.volume|round(account.decimal) }}</p>
     <p>&emsp;Current Price: {{ account.price|round(account.decimal) }} {{ data.currency }}</p>
     <p>&emsp;Current swing: {{ (account.swing*100)|round(1) }}% {{ account.direction }}</p>
