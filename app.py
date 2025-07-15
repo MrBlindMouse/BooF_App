@@ -583,13 +583,14 @@ def botreport(id):
         }
         for entry in transactions:
             if entry.base == account.base and entry.quote == bot.currency:
-                accountEntry["fees"] += entry.fee
                 if entry.type == "BUY":
                     accountEntry["volumeBought"] += entry.volume
                     accountEntry["valueBought"] += entry.value
+                    accountEntry["fees"] += entry.fee
                 elif entry.type == "SELL":
                     accountEntry["volumeSold"] += entry.volume
                     accountEntry["valueSold"] += entry.value
+                    accountEntry["fees"] += entry.fee
         if accountEntry['volumeBought'] != 0:
             accountEntry["avgBuyPrice"] = accountEntry["valueBought"]/accountEntry["volumeBought"]
         if accountEntry['volumeSold'] != 0:
