@@ -271,7 +271,7 @@ def login():
             })
         session.pop("message", None)
 
-    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="BooF, Smart Trading Bots for Valr")
+    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="BooF Bots, Automated Trading Bots for Valr")
 
 @app.route('/signup', methods=["GET","POST"])
 def signup():
@@ -685,7 +685,7 @@ def logout():
 
 @app.route('/about')
 def about():
-    return render_template('about.html', meta="About BooF Bots")
+    return render_template('about.html', meta="The Why and the How of BooF Bots.")
     
 @app.route('/howto')
 def howto():
@@ -693,7 +693,7 @@ def howto():
     
 @app.route('/terms')
 def terms():
-    return render_template('terms.html', meta="BooF Bots Terms and Conditions")
+    return render_template('terms.html', meta="The Terms and Conditions of Boof Bots")
 
 @app.route('/verify/<uid>')
 def verify(uid):
