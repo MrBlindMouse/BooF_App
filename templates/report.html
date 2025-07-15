@@ -23,8 +23,8 @@
     <p>Bot activity per account:</p>
     {% for account in data.accounts %}
     <p><b>{{ account.base }}</b></p>
-    <p>&emsp;Current Volume: {{ account.volume|round(8) }}</p>
-    <p>&emsp;Current Price: {{ account.price|round(4) }} {{ data.currency }}</p>
+    <p>&emsp;Current Volume: {{ account.volume|round(account.decimal) }}</p>
+    <p>&emsp;Current Price: {{ account.price|round(account.decimal) }} {{ data.currency }}</p>
     <p>&emsp;Current swing: {{ (account.swing*100)|round(1) }}% {{ account.direction }}</p>
     {% if data.dynamicMargin %}
     <p>&emsp;Adjusted Margin: {{ (account.adjustedMargin*100)|round(1) }}%</p>
@@ -33,14 +33,14 @@
     <p>&emsp;Staked amount: {{ account.stake }}</p>
     {% endif %}
     <br>
-    <p>&emsp;Volume Bought: {{ account.volumeBought|round(8) }}</p>
+    <p>&emsp;Volume Bought: {{ account.volumeBought|round(account.decimal) }}</p>
     <p>&emsp;Value Bought: {{ account.valueBought|round(2) }} {{ data.currency }}</p>
-    <p>&emsp;Average Buy Price: {{ account.avgBuyPrice|round(4) }} {{ data.currency }}</p><br>
-    <p>&emsp;Volume Sold: {{ account.volumeSold|round(8) }}</p>
+    <p>&emsp;Average Buy Price: {{ account.avgBuyPrice|round(account.decimal) }} {{ data.currency }}</p><br>
+    <p>&emsp;Volume Sold: {{ account.volumeSold|round(account.decimal) }}</p>
     <p>&emsp;Value Sold: {{ account.valueSold|round(2) }} {{ data.currency }}</p>
-    <p>&emsp;Average Sell Price: {{ account.avgSellPrice|round(4) }} {{ data.currency }}</p><br>
+    <p>&emsp;Average Sell Price: {{ account.avgSellPrice|round(account.decimal) }} {{ data.currency }}</p><br>
     {% if [account.volumeBought,account.volumeSold]|min() > 0 %}
-    <p>&emsp;Profit per volume: {{ (account.avgSellPrice-account.avgBuyPrice)|round(4) }} {{ data.currency }}</p>
+    <p>&emsp;Profit per volume: {{ (account.avgSellPrice-account.avgBuyPrice)|round(account.decimal) }} {{ data.currency }}</p>
     {% else %}
     <p>&emsp;Profit per volume: 0 {{ data.currency }}</p>
     {% endif %}

@@ -1241,7 +1241,7 @@ def balanceBots(config = Config, bot = db.Bot):
         
         volatility = abs(currencyDetails["volatility"]) if currencyDetails["volatility"] > 0.1 else 0.1
         atr = currencyDetails['atr'] if currencyDetails["volatility"]!=0 else 1
-        margin = max(min(((bot.margin*2)+(atr*volatility))/3,bot.margin*1.2),bot.margin*0.8) if bot.dynamic_margin else bot.margin
+        margin = max(min(((bot.margin*volatility*2)+(atr))/3,bot.margin*1.2),bot.margin*0.8) if bot.dynamic_margin else bot.margin
 
         weight = max(0.8, min(1, generalTrend)) #Adjustment capped at 80% on downtrend
         balanceValue = bot.balance_value * weight if bot.refined_weight else bot.balance_value

@@ -557,11 +557,15 @@ def botreport(id):
     transactions = db.getTransactions(bot_id=id)
     for account in accounts:
         price = 0
+        atr=bot.margin
+        volatility = 1
+        decimal=2
         for entry in currencyList:
             if entry['base'] == account.base:
                 price = float(entry["price"])
                 atr = float(entry["atr"])
                 volatility = float(entry["volatility"])
+                decimal = int(entry["decimal"])
                 break
         accountEntry = {
             "base":account.base,
@@ -577,7 +581,8 @@ def botreport(id):
             "avgBuyPrice":0,
             "avgSellPrice":0,
             "fees":0,
-            "adjustedMargin":max(min(((bot.margin*2)+(atr*volatility))/3,bot.margin*1.2),bot.margin*0.8)
+            "adjustedMargin":max(min(((bot.margin*volatility*2)+(atr))/3,bot.margin*1.2),bot.margin*0.8),
+            "decimal":decimal
         }
         for entry in transactions:
             if entry.base == account.base and entry.quote == bot.currency:
