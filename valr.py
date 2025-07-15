@@ -487,25 +487,24 @@ def findTrend(session, pair):
             shortTerm = float(shortResult[-1]["close"])
             for line in reversed(shortResult):
                 shortTerm = ((shortTerm*3) + float(line["close"]))/4
-            #shortTerm = shortTerm/len(shortResult)
-            smaShort = 0
-            for line in shortResult:
-                smaShort += float(line["close"])
-            smaShort = smaShort/len(shortResult)
-            smaLong = 0
-            for line in result[:60]:
-                smaLong += float(line["close"])
-            smaLong = smaLong/len(result[:60])
-            smaTrend = smaShort/smaLong
+
+            #smaShort = 0
+            #for line in shortResult:
+            #    smaShort += float(line["close"])
+            #smaShort = smaShort/len(shortResult)
+            #smaLong = 0
+            #for line in result[:60]:
+            #    smaLong += float(line["close"])
+            #smaLong = smaLong/len(result[:60])
+            #smaTrend = smaShort/smaLong
             
             longTerm = float(result[61]["close"])
-            for line in list(reversed(result))[:60]:
+            for line in reversed(result[:60]):
                 longTerm = ((longTerm*6) + float(line["close"]))/7
-            #longTerm = longTerm/len(result[:60])
             answer["trend"]=trunc((shortTerm/longTerm),4)
 
-            wmaTrend = shortTerm/longTerm
-            print(f"{pair}~ smaTrend:{smaTrend} | wmaTrend:{wmaTrend}")
+            #wmaTrend = shortTerm/longTerm
+            #print(f"{pair}~ smaTrend:{smaTrend} | wmaTrend:{wmaTrend}")
 
             up = 0
             down = 0
