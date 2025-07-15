@@ -1152,9 +1152,10 @@ def closeAccount():
 @app.errorhandler(Exception)
 def handle_exception(e):
     # pass through HTTP errors
+    httpEnvirons = request.environ
     str=""
-    for key, value in request.environ.items():
-        str+=f"{key}: {value}<br>"
+    str += f"IP: {httpEnvirons.get("HTTP_CF_CONNECTING_IP")}<br>"
+    str += f"Country: {httpEnvirons.get("HTTP_CF_IPCOUNTRY")}<br>"
     valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{str}")
     if "id" in session:
         session.pop('id', default=None)
