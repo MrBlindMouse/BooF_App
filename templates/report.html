@@ -26,6 +26,7 @@
     <p>&emsp;Current Volume: {{ account.volume|round(8) }}</p>
     <p>&emsp;Current Price: {{ account.price|round(4) }} {{ data.currency }}</p>
     <p>&emsp;Current swing: {{ (account.swing*100)|round(1) }}% {{ account.direction }}</p>
+    <p>&emsp;Adjusted Margin: {{ (account.adjustedMargin*100)|round(1) }}%</p>
     {% if account.stake != 0 %}
     <p>&emsp;Staked amount: {{ account.stake }}</p>
     {% endif %}

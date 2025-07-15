@@ -1221,7 +1221,10 @@ def balanceBots(config = Config, bot = db.Bot):
 
     marketATR = 0
     for entry in currencyList:
-        marketATR += entry['atr']
+        if entry["atr"] == 0:
+            marketATR += bot.margin
+        else:
+            marketATR += entry['atr']
     marketATR = marketATR/len(currencyList)
 
     generalTrend = findGeneralTrend(bot.currency, config)
@@ -1236,10 +1239,11 @@ def balanceBots(config = Config, bot = db.Bot):
         decimal = int(currencyDetails["decimal"])
         value = account.volume * price
         
+        volatility = abs(currencyDetails["volatility"]) if currencyDetails["volatility"] > 0.1 else 0.1
+        atr = currencyDetails['atr'] if currencyDetails["volatility"]!=0 else 1
+        marginAdjustment = atr*volatility
         
-        avgDiff = (bot.margin+currencyDetails['atr'])/(2*marketATR)
-        combinedVolatility = (avgDiff+(currencyDetails["volatility"] if currencyDetails["volatility"]!=0 else avgDiff))/2
-        margin = bot.margin*min(1.2,max(0.8,combinedVolatility)) if bot.dynamic_margin else bot.margin
+        margin = min((1.2*bot.margin),max((0.8*bot.margin),marginAdjustment*bot.margin)) if bot.dynamic_margin else bot.margin
 
         weight = max(0.8, min(1, generalTrend)) #Adjustment capped at 80% on downtrend
         balanceValue = bot.balance_value * weight if bot.refined_weight else bot.balance_value

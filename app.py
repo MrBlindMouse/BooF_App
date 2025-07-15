@@ -559,6 +559,8 @@ def botreport(id):
         for entry in currencyList:
             if entry['base'] == account.base:
                 price = float(entry["price"])
+                atr = float(entry["atr"])
+                volatility = float(entry["volatility"])
                 break
         accountEntry = {
             "base":account.base,
@@ -573,7 +575,8 @@ def botreport(id):
             "valueSold":0,
             "avgBuyPrice":0,
             "avgSellPrice":0,
-            "fees":0
+            "fees":0,
+            "adjustedMargin":((bot.margin*volatility)+atr)/2
         }
         for entry in transactions:
             if entry.base == account.base and entry.quote == bot.currency:
