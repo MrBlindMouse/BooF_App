@@ -24,10 +24,10 @@
     <p>You're bot will now start buying the relevant currencies, monitor the prices and buy/sell when the indicated margins has been reached.</p>
     <br/>
     <h2>Note:</h2>
-    <p>The bot will automatically buy the maximum available cryptocurrencies available for the relevant quote currency, based on minimum trade and margin, and adjust as the total value available changes.</p>
+    <p>The bot will automatically buy the maximum available cryptocurrencies available for the relevant quote currency, based on Valr's minimum trade value and the set margin, and adjust as the total value available changes.</p>
     <p>If there is not enough equity available to trade, then the bot will increase the margin until trading is possible.</p>
     <p>A minimum investment of R30 000 is recommended for the bot to run cost-effectively, but less is possible.</p>
-    <p>To run the bot for 4 weeks costs 1 credit, with credits available under the <b>Buy Credits</b> page.</p><br>
+    <p>To run the bot for 4 weeks costs 1 credit, with credits available under the <b>Buy Credits</b> page. The bot's operate on a flat rate, regardless of how much is invested.</p><br>
     <h2>As a signup bonus, 1x Credit will gifted to you to test out the bots.</h2>
     <br>
     <hr><br>
@@ -37,11 +37,14 @@
     <p><b>USDT</b>: ETH, SOL, AVAX, WIF, JUP, BOME, PYTH, W, MEME, ORDER, ZRO, BNB, POPCAT, PNUT, GOAT, NEIRO, PENGU, SWEAT, AGRI, SHIB, XAUT, S, DOGE, TRX, BTC, AVAX, DOGE, SOL, TRUMP, XRP, ETH, XRP, BTC</p>
     <br>
     <p>The bot will trigger a buy/sell when the individual crypto's value has deviated from the average by more than the margin, then reverted by a fraction of the margin. This is for the purpose of buying/selling the peaks and valleys instead of just when the margin has been reached.</p>
-    <p>The bot's rebalancing (mean-reversion) strategy prefers a horizontal market and suffers under a trending market. To remedy this, weight refinement and dynamic margins have been introduced to limit the impact of a downtrend and profit from an uptrend. These adjustments <i>can</i> have a negative impact on the core strategy.</p><br>
+    <p>The bot's rebalancing (mean-reversion) strategy prefers a horizontal market and struggles under a trending market. To mitigate this weight refinement have been introduced to limit the impact of a downtrend and capitalize an uptrend, while dynamic margins are used to balance the volatility of individual coins. These adjustments <i>can</i> have a negative impact on the core strategy.</p><br>
     <p><b>Dynamic margin</b> takes the individual tickers relative volatility(beta) and true range(ATR%) and adjusts the set margin to push either more frequent trades for low volatility and bigger profits for higher volatility. The influence of this is limited to 20%.</p>
     <p><b>Refined weights</b> adjusts the Fiat-Crypto balance based on the general trend of the index, with Fiat favoured in a downwards trend relative to the trend's strength. This adjustment is limited to 20%</p>
-    <p><b>Downturn Protection</b> protects the investment from a significant market downtrend. When the general trend falls below 0.9 the bot liquidates its positions and stops its trading, then starts and re-invests when the trend recovers to above 0.98. <i>Please note that when this option is selected the bot will start even if you have not activated it.</i></p><br>
+    <p><b>Downturn Protection</b> protects the investment from a significant market downtrend. When the general trend falls below 0.9 the bot liquidates its positions and stops its trading, then starts and re-invests when the trend recovers to above 0.98. <i>Please note that when this option is selected the bot will start even if you have not activated it.</i></p>
+    <p>These options are not required for the bot to operate efficiently, and remember: The instability of the crypto market is the reason this bot works so well. If it goes down, it will eventaully go up again!</p><br>
+    <h3>Important</h3>
     <p>It is <b>strongly suggested</b> to set the config of the bot before activating and not tamper with it afterward to avoid upsetting the bot's buy/sell pattern, thus making bad trades.</p>
+    <p>Consider the ATR% of the index you want your bot to operate on. Setting the margin too low will risk price slippage and a high fee/profit ratio, while too high will reduce the amount of trades made.</p>
     <p>A portion of the investment will be staked (where possible), but lending will not be made available due to the 1-hour lock on funds.</p>
     <p>Allowing the fiat portion to be lent out during Downturn Protection is under consideration.</p>
 

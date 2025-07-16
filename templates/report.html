@@ -14,8 +14,16 @@
     <p>Trade Margin: {{ data.margin }}%</p><br>
     <p>Realized Trading Profit: {{ data.realizedProfit|round(2) }} {{ data.currency }}</p>
     <p>Trading Fees: {{ data.totalFees|round(3) }} {{ data.currency }}</p>
+    {% if data.realizedProfit != 0 %}
     <p>Fees/Profit: {{ ((data.totalFees/data.realizedProfit)*100)|round(2) }}%</p>
-    <p>Est Profit% per annum: {{ ((((data.realizedProfit-data.totalFees)/data.equity)/data.cost)*13*100)|round(2) }}%</p><br>
+    {% else %}
+    <p>Fees/Profit: N/A</p>
+    {% endif %}
+    {% if data.realizedProfit != 0 and data.cost != 0 %}
+    <p>Est Annual Trading Profit: {{ (((data.realizedProfit-data.totalFees)/data.cost)*13)|round(2) }} {{ data.currency }}</p><br>
+    {% else %}
+    <p>Est Annual Trading Profit: N/A</p><br>
+    {% endif %}
     <p>Balance Amount: {{ data.balance|round(2) }} {{ data.currency }}</p>
     <p>Market Trend: {{ data.trend|round(3) }}</p>
     {% if data.weightedBalance != 0 %}
