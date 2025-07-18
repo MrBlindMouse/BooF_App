@@ -1280,7 +1280,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 account.swing = difference
                 account.update()
             elif difference < (account.swing*(1-((account.swing+margin)/2))) and difference > margin:
-                printLog(f"Selling {account.base} Swing:{difference}/Margin:{margin}")
+                printLog(f"Selling {account.base} Swing:{difference}/Margin:{margin}",True)
                 sellVolume = (value-balanceValue)/price
                 result = trade("SELL", bot.currency, account.base, bot.key, bot.secret, sellVolume, decimal)
                 if result:
@@ -1315,7 +1315,7 @@ def balanceBots(config = Config, bot = db.Bot):
                 account.swing = difference
                 account.update()
             elif difference < (account.swing*(1-((account.swing+margin)/2))) and difference > margin:
-                printLog(f"Buying {account.base} Swing:{difference}/Margin:{margin}")
+                printLog(f"Buying {account.base} Swing:{difference}/Margin:{margin}",True)
                 buyValue = balanceValue-value
                 result = trade("BUY", bot.currency, account.base, bot.key, bot.secret, buyValue, decimal)
                 if result:
