@@ -579,7 +579,7 @@ def botreport(id):
             "avgBuyPrice":0,
             "avgSellPrice":0,
             "fees":0,
-            "adjustedMargin":max(min((bot.margin+(bot.margin*volatility)+atr)/3,bot.margin*1.2),bot.margin*0.8)
+            "adjustedMargin":max(min(((bot.margin*2)+(bot.margin*volatility)+atr)/4,bot.margin*1.2),bot.margin*0.8)
         }
         for entry in transactions:
             if entry.base == account.base and entry.quote == bot.currency:
