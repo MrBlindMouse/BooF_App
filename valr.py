@@ -1860,22 +1860,35 @@ def update_loop(lock, session, config=Config):
 
     logPost(f"{reportString}<br>{ZARString}{USDCString}{USDTString}", '1')
 
+def trendSort(value):
+    trend = (float(value["trend"])+((float(value["rsi"])/100)+0.5))/2
+    return trend
+    
 @bmd_logger
 def xUpdate(config=Config):
     
     generalTrend = findGeneralTrend('USDT', config)
 
+    trendList = config.USDC[:]
+    trendList.sort(key=trendSort, reverse=True)
+
     msg = "Crypto Trend Update: "
     trendStrings = []
-    for entry in config.USDC:
+    for entry in trendList:
         trendStrings.append(f"{entry["base"]} Trend:{trunc(entry["trend"],2)} RSI:{int(entry["rsi"])}")
     msg += " | ".join(trendStrings)
     fire = ''
-    if generalTrend > 1.05:
+    if generalTrend > 1.08:
         fire =  '🚀'
-    elif generalTrend < 0.95:
+    elif generalTrend > 1.02:
+        fire =  '🔥'
+    elif generalTrend < 0.92:
+        fire = '❄️'
+    elif generalTrend < 0.98:
         fire = '🌧️'
-    msg += f". The General Market Trend is {trunc(generalTrend,2)}{fire}. "
+    elif generalTrend < 1.02 and generalTrend > 0.98:
+        fire= '😐'
+    msg += f". The General Market Trend is {trunc(generalTrend,2)} {fire}. "
     msg += "Powered by boof-bots.com, and valr.com #CryptoTrends #TradingBot #HODL"
     twitter.sendTweet(msg)
 
