@@ -10,7 +10,13 @@
     <meta name="twitter:site" content="@boofbots"/>
     <meta name="twitter:title" content="BooF Bots, crypto trading bot"/>
     <meta name="twitter:description" content="A Crypto Trading bot, powered by the Valr crypto exchange. Designed as an un-supervised/self-regulating long term HODL bot, that profits from crypto's natural volatility"/>
-    <meta name="twitter:image" content="{{ url_for('static', filename='images/abacus.jpg') }}"/>
+    <meta name="twitter:image" content="https://boof-bots.com{{ url_for('static', filename='images/abacus.jpg') }}"/>
+
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="BooF Bots, crypto trading bot" />
+    <meta property="og:description" content="A Crypto Trading bot, powered by the Valr crypto exchange. Designed as an un-supervised/self-regulating long term HODL bot, that profits from crypto's natural volatility" />
+    <meta property="og:url" content="https://boof-bots.com/" />
+    <meta property="og:image" content="https://boof-bots.com{{ url_for('static', filename='images/abacus.jpg') }}" />
 
     <title>BooF Bots - Automated Trading Bots</title>
     <link rel="icon" href="{{ url_for('static', filename='images/boof_logo.png') }}">
