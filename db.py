@@ -470,7 +470,7 @@ def getActiveAccounts(id=None, bot_id=None):
 
 class Transaction:
     """
-    New entry data = [id:0, bot_id:{bot_id}, transaction_type:{type}, volume:{volume}, value:{value}, base:{base}, quote:{quote}, ts:{int(time.time())}]
+    New entry data = [id:0, bot_id:{bot_id}, transaction_type:{type}, volume:{volume}, value:{value}, base:{base}, quote:{quote}, ts:{int(time.time()), fee:{fee}}]
     Types: "INVEST", "WITHDRAW", "BUY", "SELL"
     """
     def __init__(self,data):
