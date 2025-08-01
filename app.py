@@ -1079,7 +1079,7 @@ def clear(id):
     accounts = db.getActiveAccounts(bot_id=bot.id)
     config = valr.Config()
     config.loadState()
-    for account in accoutns:
+    for account in accounts:
         value = account.volume * account.price(config)
         newTransaction = db.Transaction([0,bot.id,"INVEST",account.volume,value,account.base,bot.currency,int(time.time())])
         newTransaction.post()
@@ -1180,14 +1180,14 @@ def handle_exception(e):
     str=""
     str += f"IP: {httpEnvirons.get("HTTP_CF_CONNECTING_IP")}<br>"
     str += f"Country: {httpEnvirons.get("HTTP_CF_IPCOUNTRY")}<br>"
-    valr.logPost(f"Error code received from app<br>{e.code}: {e.name}<br>{e.description}<br>{request.url}<br>{str}")
+    valr.logPost(f"Error code received from app<br>{e}<br>{request.url}<br>{str}")
     
     session["error"] = {
         "type":"ERROR",
-        "message":f"Error:'{e.code}', {e.name}"
+        "message":f"Error:'{e}"
     }
 
-    return redirect(url_for('login')), e.code
+    return redirect(url_for('login')), 500
 
 @app.route('/robots.txt')
 @app.route('/sitemap.xml')
