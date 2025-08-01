@@ -794,7 +794,8 @@ def checkBalances(config = Config, bot = db.Bot):
 
         downturnProtection = False
         if not bot.active:
-            if bot.downturn_protection:
+            credits = db.getCredits(bot_id=bot.id)
+            if bot.downturn_protection and credits["credit"] > 0:
                 downturnProtection = True
             else:
                 return
