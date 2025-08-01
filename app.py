@@ -1081,7 +1081,9 @@ def clear(id):
     config = valr.Config()
     config.loadState()
     if accounts:
+        valr.logPost("Setting initial investments",1)
         for account in accounts:
+            valr.logPost(f"Setting {account.base}",1)
             value = account.volume * account.price(config)
             newTransaction = db.Transaction([0,bot.id,"INVEST",account.volume,value,account.base,bot.currency,int(time.time())])
             newTransaction.post()
