@@ -1889,7 +1889,7 @@ def xUpdate(config=Config):
     elif generalTrend < 1.02 and generalTrend > 0.98:
         fire= '😐'
     msg += f". The General Market Trend is {trunc(generalTrend,2)} {fire}. "
-    msg += "Powered by boof-bots.com, and valr.com #CryptoTrends #TradingBot #HODL"
+    msg += "Powered by boof-bots.com and Valr #CryptoTrends #TradingBot #HODL"
     twitter.sendTweet(msg)
 
 
