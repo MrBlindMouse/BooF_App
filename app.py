@@ -1072,17 +1072,19 @@ def clear(id):
         return redirect(url_for('login'))
     bot = db.getBots(id=id)
     transactions = db.getTransactions(bot_id=bot.id)
-    for entry in transactions:
-        entry.delete()
+    if transactions:
+        for entry in transactions:
+            entry.delete()
     message = db.Message([0,bot.user_id,"INFO",f"Transactions for Bot:'{bot.name}' has been cleared"])
     message.post()
     accounts = db.getActiveAccounts(bot_id=bot.id)
     config = valr.Config()
     config.loadState()
-    for account in accounts:
-        value = account.volume * account.price(config)
-        newTransaction = db.Transaction([0,bot.id,"INVEST",account.volume,value,account.base,bot.currency,int(time.time())])
-        newTransaction.post()
+    if accounts:
+        for account in accounts:
+            value = account.volume * account.price(config)
+            newTransaction = db.Transaction([0,bot.id,"INVEST",account.volume,value,account.base,bot.currency,int(time.time())])
+            newTransaction.post()
     return redirect(url_for('home'))
 
 @app.route('/delete/<id>')
