@@ -1184,12 +1184,9 @@ def handle_exception(e):
     str += f"Country: {httpEnvirons.get("HTTP_CF_IPCOUNTRY")}<br>"
     valr.logPost(f"Error code received from app<br>{e}<br>{request.url}<br>{str}")
     
-    session["error"] = {
-        "type":"ERROR",
-        "message":f"Error:'{e}"
-    }
+    session["error"] = f"Error:'{e}"
 
-    return redirect(url_for('login')), 500
+    return redirect(url_for('login'))
 
 @app.route('/robots.txt')
 @app.route('/sitemap.xml')
