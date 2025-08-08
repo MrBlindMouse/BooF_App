@@ -73,6 +73,7 @@
 .sub{
     flex: auto;
     background-color: rgba(224, 255, 255, 0.9);
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
     text-align: left;
     border-radius: 40px;
     padding: 20px;
@@ -140,6 +141,7 @@ body{
 
 footer{
     background-color: rgba(9, 77, 94, 0.9);
+    box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
     border-radius: 25px;
     display:flex;
     flex: auto;

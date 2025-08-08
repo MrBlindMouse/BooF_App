@@ -1247,6 +1247,7 @@ def balanceBots(config = Config, bot = db.Bot):
         for entry in currencyList:
             if entry["base"] == account.base:
                 currencyDetails = entry
+                break
 
         price = float(currencyDetails["price"])
         decimal = int(currencyDetails["decimal"])
