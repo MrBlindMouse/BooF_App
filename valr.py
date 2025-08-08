@@ -881,6 +881,7 @@ def checkBalances(config = Config, bot = db.Bot):
                                     decimal = int(ticker["decimal"])
                                     price = float(ticker["price"])
                                     minValue = float(ticker["minTrade"])
+                                    break
 
                             volume = float(entry["available"])+stake  
                             if volume*price > minValue:

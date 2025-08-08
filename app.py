@@ -409,8 +409,7 @@ def botstats(id):
     botResult={
         "name": bot.name,
         "id":bot.id,
-        "status": bot.active,
-        "downturnProtection":bot.downturn_protection,
+        "status": "Running . . .",
         "currency": bot.currency,
         "equity": bot.equity,
         "transaction":{},
@@ -425,6 +424,15 @@ def botstats(id):
         "chartDates":[],
         "chartCount":[]
         }
+    credit = db.getCredits(bot_id=bot.id)
+    if not bot.active:
+        if credit["credit"] > 0 and bot.downturn_protection:
+            botResult["status"] = "Paused under <b>Donwturn Protection</b>"
+        elif credit["credit"] <= 0:
+            botResult["status"] = "Suspended"
+        else:
+            botResult["status"] = "Paused"
+
     accounts = db.getActiveAccounts(bot_id=bot.id)
     for account in accounts:
         if account.direction == "UP" and trunc((account.swing*100),2) > botResult["accountDetails"]["high_swing"]:
@@ -453,7 +461,7 @@ def botstats(id):
         sellValue = 0
         fees = 0
         for line in transactions:
-            if line.base == account.base and line.quote == bot.currency and line.ts > (now-31536000):
+            if line.base == account.base and line.quote == bot.currency:
                 if line.type == "BUY":
                     fees += line.fee
                     buyVolume += line.volume
@@ -467,7 +475,7 @@ def botstats(id):
             realizedProfit = (((sellValue/sellVolume)-(buyValue/buyVolume))*min(sellVolume,buyVolume))-fees
         botResult["realizedProfit"] += realizedProfit
         for line in transactions:
-            if line.base == account.base and line.quote == bot.currency and line.ts > (now-31536000):
+            if line.base == account.base and line.quote == bot.currency:
                 if line.type == "INVEST":
                     fees += line.fee
                     buyVolume += line.volume
@@ -825,7 +833,7 @@ def market():
         "USDTList":valrConfig.USDT,
         "USDTTrend":trunc(usdtTrend,3),
     }
-    return render_template("market.html", details=details, meta="Crypto Market Technical Analysis")
+    return render_template("market.html", details=details, meta="Technical Analysis of the Crypto Market Trends, for BooF Bots")
 
 @app.route('/addbot', methods=["POST","GET"])
 def addbot():
@@ -1081,9 +1089,7 @@ def clear(id):
     config = valr.Config()
     config.loadState()
     if accounts:
-        valr.logPost(f"Setting {len(accounts)} initial investments",1)
         for account in accounts:
-            valr.logPost(f"Setting {account.base}",1)
             value = account.volume * account.price(config)
             newTransaction = db.Transaction([0,bot.id,"INVEST",account.volume,value,account.base,bot.currency,int(time.time()),0])
             newTransaction.post()

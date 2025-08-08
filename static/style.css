@@ -37,8 +37,8 @@
 .button{
     display: inline-block; /* Allows padding/margin to work fully */
     padding: 0.75rem 1.5rem; /* Comfortable padding */
-    background-color: #3094ad; /* Blue background */
-    color: rgb(0, 0, 0); /* White text */
+    background-color: #3094ad;
+    color: rgb(0, 0, 0);
     text-decoration: none; /* Remove underline */
     border-radius: 10px; /* Rounded corners */
     font-family: Arial, sans-serif; /* Clean font */
@@ -98,6 +98,7 @@
 .center{
     flex: auto;
     background-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 10px 20px 50px rgba(0, 0, 0, 0.5);
     border-radius: 30px;
     padding: 10px;
 }
@@ -130,7 +131,7 @@
 }
 
 body{
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgb(255, 255, 255);
     background-repeat: no-repeat;
     background-size: cover;
     background-attachment: fixed;

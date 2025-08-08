@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="description" content="{{ meta }}">
-    <meta name="keywords" content="Valr, Bot, Trading, Crypto">
+    <meta name="keywords" content="Valr, Bot, Trading, Crypto, Boof Bots">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <meta name="twitter:card" content="summary_large_image"/>
@@ -18,7 +18,7 @@
     <meta property="og:url" content="https://boof-bots.com/" />
     <meta property="og:image" content="https://boof-bots.com{{ url_for('static', filename='images/abacus.jpg') }}" />
 
-    <title>BooF Bots - Automated Trading Bots</title>
+    <title>BooF Bots - Automated Crypto Trading</title>
     <link rel="icon" href="{{ url_for('static', filename='images/boof_logo.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% if request.endpoint and request.view_args is not none %}
@@ -31,7 +31,8 @@
     {% endif %}
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
-<body background="{{ url_for('static',filename='images/boof_background.webp') }}">
+<!--background="{{ url_for('static',filename='images/boof_background.webp') }}"-->
+<body>
     <div class="main">
         <div class="side"></div>
         <div class="center">
