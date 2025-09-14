@@ -30,6 +30,24 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     {% endif %}
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script>
+        (function() {
+            function getCookie(name) {
+                let nameEQ = name + "=";
+                let cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    let cookie = cookies[i].trim();
+                    if (cookie.indexOf(nameEQ) === 0) {
+                        return cookie.substring(nameEQ.length, cookie.length);
+                    }
+                }
+                return null;
+            }
+            if (getCookie('darkMode') === 'true') {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 </head>
 <!--background="{{ url_for('static',filename='images/boof_background.webp') }}"-->
 <body>
@@ -73,30 +91,12 @@
             document.cookie = name + "=" + value + expires + "; path=/";
         }
 
-        function getCookie(name) {
-            let nameEQ = name + "=";
-            let cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                let cookie = cookies[i].trim();
-                if (cookie.indexOf(nameEQ) === 0) {
-                    return cookie.substring(nameEQ.length, cookie.length);
-                }
-            }
-            return null;
-        }
-
         function toggleBackground() {
-            document.body.classList.toggle('dark');
-            let isDark = document.body.classList.contains('dark');
+            document.documentElement.classList.toggle('dark');
+            let isDark = document.documentElement.classList.contains('dark');
             setCookie('darkMode', isDark ? 'true' : 'false', 30);
         }
 
-        window.onload = function() {
-            let darkMode = getCookie('darkMode');
-            if (darkMode === 'true') {
-                document.body.classList.add('dark');
-            }
-        };
     </script>
 </body>
 </html>
