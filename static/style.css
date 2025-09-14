@@ -138,6 +138,9 @@ body{
     background-attachment: fixed;
     background-blend-mode:soft-light;
 }
+.dark{
+    background-color: rgb(32, 33, 39);
+}
 
 footer{
     background-color: rgba(9, 77, 94, 0.9);

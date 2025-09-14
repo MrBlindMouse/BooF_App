@@ -427,11 +427,11 @@ def botstats(id):
     credit = db.getCredits(bot_id=bot.id)
     if not bot.active:
         if credit["credit"] > 0 and bot.downturn_protection:
-            botResult["status"] = "Paused under <b>Donwturn Protection</b>"
+            botResult["status"] = "Paused under <b>Donwturn Protection</b>."
         elif credit["credit"] <= 0:
-            botResult["status"] = "Suspended"
+            botResult["status"] = "Suspended!"
         else:
-            botResult["status"] = "Paused"
+            botResult["status"] = "Paused."
 
     accounts = db.getActiveAccounts(bot_id=bot.id)
     for account in accounts:
@@ -613,7 +613,7 @@ def botreport(id):
 
     data["totalFees"] = feeTotal
     data["realizedProfit"] = profitRealized
-    credit = db.getCredits(bot_id=id)
+    credit = db.getCurrentCredits(bot_id=id)
     data["runtime"] = credit["time"]
     data["cost"] = credit["credit"]
     return render_template("report.html", data=data, meta="Bot Performance Report")
@@ -1093,6 +1093,7 @@ def clear(id):
             value = account.volume * account.price(config)
             newTransaction = db.Transaction([0,bot.id,"INVEST",account.volume,value,account.base,bot.currency,int(time.time()),0])
             newTransaction.post()
+    bot.reset()
     return redirect(url_for('home'))
 
 @app.route('/delete/<id>')

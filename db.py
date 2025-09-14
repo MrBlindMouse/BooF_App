@@ -348,6 +348,18 @@ class Bot:
             self.update()
             stopEntry = Credit([0, self.user_id, self.id, "", 0, 0, "PAUSE", time.time()])
             stopEntry.post()
+            
+    def reset(self):
+        if self.active:
+            startEntry = Credit([0, self.user_id, self.id, "", 0, 0, "PAUSE", time.time()])
+            startEntry.post()
+            startEntry = Credit([0, self.user_id, self.id, "", 0, 0, "RESET", time.time()])
+            startEntry.post()
+            stopEntry = Credit([0, self.user_id, self.id, "", 0, 0, "START", time.time()])
+            stopEntry.post()
+        else:
+            startEntry = Credit([0, self.user_id, self.id, "", 0, 0, "RESET", time.time()])
+            startEntry.post()
 
 def getBots(id=None, user_id=None):
     """
@@ -518,7 +530,7 @@ class Credit:
     New entry data list = [id:{0}, user_id:{user_id}, bot_id:{bot_id}, deposit_nr:{''}, value:{value}, volume:{volume}, description:{description}, ts:{int(time.time())}]
     id = 0
     Bot_id = 0 if not specific
-    description = [CREDIT, BONUS, START, PAUSE]
+    description = [CREDIT, BONUS, START, PAUSE, RESET]
     """
     def __init__(self,data):
         self.id = int(data[0])
@@ -553,16 +565,10 @@ def getCredits(user_id=None, bot_id=None, type="SUM"):
     Type = "LIST","SUM"
     """
     if type == "SUM":
-        credits = []
         if bot_id and not user_id:
             bot = getBots(id=bot_id)
             user_id = bot.user_id
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            data = cursor.execute("SELECT * FROM credit_table WHERE user_id = ?", [user_id]).fetchall()
-            if data:
-                for entry in data:
-                    credits.append(Credit(entry))
+        credits = returnCredits(user_id)
 
         ts = int(time.time())
         creditPeriod = 4*7*24*60*60  #Secs in 4 weeks (4*7*24*60*60)
@@ -584,6 +590,8 @@ def getCredits(user_id=None, bot_id=None, type="SUM"):
                 elif entry.description == "PAUSE":
                     stop_nr += 1
                     pause += ts-entry.ts
+                elif entry.description == "RESET":
+                    continue
                 else:
                     print("Unknown Credit entry:")
                     print(entry)
@@ -605,10 +613,8 @@ def getCredits(user_id=None, bot_id=None, type="SUM"):
         else:
             for entry in credits:
                 if entry.description == "START" and int(entry.bot_id) == int(bot_id):
-                    start_nr += 1
                     run += ts-entry.ts
                 elif entry.description == "PAUSE" and int(entry.bot_id) == int(bot_id):
-                    stop_nr += 1
                     pause += ts-entry.ts
 
             run_time = run-pause
@@ -619,17 +625,40 @@ def getCredits(user_id=None, bot_id=None, type="SUM"):
             }
             return details
     elif type == "LIST":
-        credits = []
         if bot_id and not user_id:
             bot = getBots(id=bot_id)
             user_id = bot.user_id
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            data = cursor.execute("SELECT * FROM credit_table WHERE user_id = ?", [user_id]).fetchall()
-            if data:
-                for entry in data:
-                    credits.append(Credit(entry))
-        return credits
+        return returnCredits(user_id)
+
+def getCurrentCredits(bot_id=None):
+    if not bot_id:
+        return None
+        
+    ts = int(time.time())
+    creditPeriod = 4*7*24*60*60  #Secs in 4 weeks (4*7*24*60*60)
+    cred_in = 0
+    run = 0
+    pause = 0
+
+    bot = getBots(id=bot_id)
+    user_id = bot.user_id
+    credits = returnCredits(user_id)
+    for entry in credits:
+        if entry.description == "START" and int(entry.bot_id) == int(bot_id):
+            run += ts-entry.ts
+        elif entry.description == "PAUSE" and int(entry.bot_id) == int(bot_id):
+            pause += ts-entry.ts
+        elif entry.description == "RESET" and int(entry.bot_id) == int(bot_id):
+            run = 0
+            pause = 0
+
+    run_time = run-pause
+
+    details={
+        "credit":run_time/creditPeriod,
+        "time":run_time
+    }
+    return details
 
 
 def returnCredits(user_id):

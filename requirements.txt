@@ -10,3 +10,5 @@ schedule
 shortuuid
 gunicorn
 tweepy
+websockets
+asyncio

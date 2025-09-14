@@ -33,7 +33,7 @@
 </head>
 <!--background="{{ url_for('static',filename='images/boof_background.webp') }}"-->
 <body>
-    <div class="main">
+    <div class="main" id="main">
         <div class="side"></div>
         <div class="center">
             <br>
@@ -55,11 +55,48 @@
                     <a class="button" href="{{ url_for('howto') }}">HowTo</a>
                     <a class="button" href="{{ url_for('terms') }}">T&C's</a>
                     <a class="button" href="{{ url_for('market') }}">Market Analysis</a>
+                    <a class="button" href="#" onclick="toggleBackground(); return false;">Mode: Light/Dark</a>
                 </div>
                 <p style="display: flexbox; margin: auto;">BooF was 🛠 with ❤ by <a href="https://www.bmd-studios.com" target="_blank" style="color: black;">MrBlindMouse</a></p> 
             </footer>
         </div>
         <div class="side"></div>
     </div>
+    <script>
+        function setCookie(name, value, days) {
+            let expires = "";
+            if (days) {
+                let date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + value + expires + "; path=/";
+        }
+
+        function getCookie(name) {
+            let nameEQ = name + "=";
+            let cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.indexOf(nameEQ) === 0) {
+                    return cookie.substring(nameEQ.length, cookie.length);
+                }
+            }
+            return null;
+        }
+
+        function toggleBackground() {
+            document.body.classList.toggle('dark');
+            let isDark = document.body.classList.contains('dark');
+            setCookie('darkMode', isDark ? 'true' : 'false', 30);
+        }
+
+        window.onload = function() {
+            let darkMode = getCookie('darkMode');
+            if (darkMode === 'true') {
+                document.body.classList.add('dark');
+            }
+        };
+    </script>
 </body>
 </html>

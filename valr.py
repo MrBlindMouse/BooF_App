@@ -1875,6 +1875,14 @@ def xUpdate(config=Config):
     trendList = config.USDC[:]
     trendList.sort(key=trendSort, reverse=True)
 
+    high = trendList[0]
+    low = trendList[0]
+    for entry in trendList:
+        if entry["rsi"] > high["ris"]:
+            high = entry
+        if entry["rsi"] < low["rsi"]:
+            low = entry
+
     msg = "Crypto Trend Update: "
     trendStrings = []
     for entry in trendList:
