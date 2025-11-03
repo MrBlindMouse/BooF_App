@@ -6,3 +6,6 @@ data/*
 test.py
 test1.py
 product_list.json
+prices.json
+history.json
+history_metadata.json
