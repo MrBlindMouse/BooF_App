@@ -401,6 +401,8 @@ def save_hour_aggregate():
                     hour_ohlc["ts"] = hour_start
                     hour_ohlc["symbol"] = base + quote
                     json_data[quote][base].append(hour_ohlc)
+                    while len(json_data[quote][base]) > 2016: #hours for 3 months
+                        json_data[quote][base].pop(0)
 
         with open(temp_history, "w") as f:
             json.dump(json_data, f, indent=2)
