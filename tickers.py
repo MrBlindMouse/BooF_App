@@ -595,7 +595,8 @@ def avg_step(price_list):
     if len(price_list) < 2:
         return 0
     steps = [
-        (price_list[i + 1] - price_list[i]) / ((price_list[i] + price_list[i + 1]) / 2)
+        abs(price_list[i + 1] - price_list[i])
+        / ((price_list[i] + price_list[i + 1]) / 2)
         for i in range(len(price_list) - 1)
     ]
     return sum(steps) / len(steps)
