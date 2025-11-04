@@ -356,6 +356,7 @@ def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         "close": ohlcList[-1]["close"],
         "depth": sum(m["depth"] for m in ohlcList) / len(ohlcList),
         "spread": sum(m["spread"] for m in ohlcList) / len(ohlcList),
+        "step": sum(m["step"] for m in ohlcList) / len(ohlcList),
         "volume": sum(m["volume"] for m in ohlcList),
         "ts": ohlcList[-1]["ts"],
     }
