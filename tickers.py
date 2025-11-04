@@ -375,8 +375,10 @@ def save_hour_aggregate():
         if os.path.exists(metadata_file):
             with open(metadata_file, "r") as f:
                 old_metadata = json.load(f)
+
         if old_metadata.get("timestamp") == hour_start:
             return  # Already saved previous hour
+        logger.info(f"Hourly save check: current {hour_start}({ts}), last saved {old_metadata.get('timestamp', 'none')}")
 
         json_data = {}
         if os.path.exists(history_file):
@@ -653,6 +655,7 @@ def process_message(message: Dict[str, Any]):
 async def post_prices():
     global tickers
     while True:
+        save_hour_aggregate()
         try:
             dataList = []
             for quote_currency, currency_tickers in tickers.items():
@@ -671,7 +674,6 @@ async def post_prices():
         except Exception as e:
             logger.error(f"Error in post_prices: {e}")
             break
-    save_hour_aggregate()
 
 
 tickers = {"ZAR": {}, "USDC": {}, "USDT": {}}
