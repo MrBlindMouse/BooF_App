@@ -4,6 +4,7 @@ from requests.packages.urllib3.util.retry import Retry
 from requests_ratelimiter import LimiterSession
 import hashlib, hmac
 from dotenv import dotenv_values
+import ast
 import schedule, threading
 import datetime, json, pickle, os, sys, traceback, time, datetime, math
 
@@ -66,7 +67,7 @@ class Config:
     """
     updateEnv() and checkVALR to be run every loop,
     updateTickers() to be run daily,
-    updatevolatility() to be ru weekly
+    updatevolatility() to be run weekly
     """
 
     STATE_FILE = "config_state.pkl"
@@ -84,6 +85,8 @@ class Config:
         self.stake = []
         self.postmarkKey = ""
         self.botTimer = 1
+        self.minSpread = 0.03
+        self.minStep = 0.04
 
     def updateEnv(self):
         """
@@ -91,8 +94,8 @@ class Config:
         """
         config = dotenv_values(".env")
         self.appSecret = config["APP_SECRET"]
-        self.forbidden = eval(config["FORBIDDEN"])
-        self.stake = eval(config["STAKE"])
+        self.forbidden = ast.literal_eval(config["FORBIDDEN"])
+        self.stake = ast.literal_eval(config["STAKE"])
         self.postmarkKey = config["POSTMARK_KEY"]
         self.paypalKey = config["PAYPAL_ID"]
         self.paypalSecret = config["PAYPAL_SECRET"]
@@ -114,104 +117,53 @@ class Config:
         }
         """
         printLog("Updating tickers . . .", True)
+        quote_lists = {"ZAR": [], "USDC": [], "USDT": []}
         try:
-            ZARlist = []
-            ZARBars = []
-            USDTlist = []
-            USDTBars = []
-            USDClist = []
-            USDCBars = []
-            url = "https://api.valr.com/v1/public/ordertypes?includeInactivePairs=false"
-            result = session.get(url).json()
-
-            url = "https://api.valr.com/v1/public/pairs"
-            detailsResult = session.get(url).json()
-
-            # Creating Lists for quote currencies
-
-            for line in result:
-                details = None
-                if "MARKET" in line["orderTypes"]:
-                    for entry in detailsResult:
-                        if entry["symbol"] == line["currencyPair"]:
-                            details = entry
-                            break
-
-                if (
-                    details
-                    and not any(
-                        forbidden in details["baseCurrency"]
-                        for forbidden in self.forbidden
-                    )
-                    and details["currencyPairType"] == "SPOT"
-                    and details["quoteCurrency"] in ["ZAR", "USDC", "USDT"]
-                ):
-                    summaryULR = f"https://api.valr.com/v1/public/{details['symbol']}/marketsummary"
-                    summaryResult = session.get(summaryULR).json()
-                    tickerDetails = {}
-                    tickerBars = {"ticker": details["baseCurrency"], "bars": []}
-                    if "markPrice" not in summaryResult:
-                        printLog(f"Market Summary error for {details['symbol']}", True)
-                        print(json.dumps(summaryResult, indent=4))
-                        print("Not added to ticker list")
-                    else:
-                        minValue = float(summaryResult["markPrice"]) * float(
-                            details["minBaseAmount"]
-                        )
-                        if minValue < float(details["minQuoteAmount"]):
-                            minValue = float(details["minQuoteAmount"])
-                        tickerTrend = {"trend": 1, "rsi": 50, "atr": 0, "bars": []}
-                        try:
-                            tickerTrend = findTrend(session, details["symbol"])
-                        except Exception as e:
-                            print(f"Exception find trend for {details['symbol']}: {e}")
-                        tickerDetails = {
-                            "base": details["baseCurrency"],
-                            "price": float(summaryResult["markPrice"]),
-                            "decimal": int(details["baseDecimalPlaces"]),
-                            "minTrade": minValue,
-                            "trend": tickerTrend["trend"],
-                            "rsi": tickerTrend["rsi"],
-                            "volatility": 1,
-                            "atr": tickerTrend["atr"],
-                        }
-                        tickerBars["bars"] = tickerTrend["bars"]
-                    if details["quoteCurrency"] == "ZAR":
-                        ZARlist.append(tickerDetails)
-                        ZARBars.append(tickerBars)
-                    elif details["quoteCurrency"] == "USDT":
-                        USDTlist.append(tickerDetails)
-                        USDTBars.append(tickerBars)
-                    elif details["quoteCurrency"] == "USDC":
-                        USDClist.append(tickerDetails)
-                        USDCBars.append(tickerBars)
-
-            for key, value in enumerate(ZARlist):
-                ZARlist[key]["volatility"] = beta(
-                    session, value["base"], "ZAR", ZARBars
-                )
-            ZARlist.sort(key=sorting)
-
-            for key, value in enumerate(USDClist):
-                USDClist[key]["volatility"] = beta(
-                    session, value["base"], "USDC", USDCBars
-                )
-            USDClist.sort(key=sorting)
-
-            for key, value in enumerate(USDTlist):
-                USDTlist[key]["volatility"] = beta(
-                    session, value["base"], "USDT", USDTBars
-                )
-            USDTlist.sort(key=sorting)
+            price_list = []
+            with open("prices.json", "r") as f:
+                price_list = json.load(f)
+            for ticker in price_list:
+                if ticker["active"] and ticker["market"]:
+                    ticker_details = {
+                        "base": "",
+                        "price": float(ticker["price"]),
+                        "decimal": int(ticker["decimal"]),
+                        "minTrade": float(ticker["min_value"]),
+                        "trend": 1,
+                        "rsi": 50,
+                        "volatility": 1,
+                        "atr": 0,
+                    }
+                    for quote in ["ZAR", "USDC", "USDT"]:
+                        if ticker["ticker"].endswith(quote):
+                            ticker_details["base"] = ticker["ticker"][: -len(quote)]
+                            if any(
+                                forbidden in ticker_details["base"]
+                                for forbidden in self.forbidden
+                            ):
+                                continue
+                            trend = findTrend(ticker["ticker"])
+                            if (
+                                trend["long_step"] > self.minStep
+                                or trend["short_step"] > (self.minStep + 0.01)
+                            ) or (
+                                trend["long_spread"] > self.minSpread
+                                or trend["short_spread"] > (self.minSpread + 0.01)
+                            ):
+                                continue
+                            ticker_details["trend"] = trend["trend"]
+                            ticker_details["rsi"] = trend["rsi"]
+                            ticker_details["atr"] = trend["art"]
+                            quote_lists[quote].append(ticker_details)
 
             with lock:
                 printLog("Locking config, updating . . .", True)
                 self.ZAR.clear()
-                self.ZAR.extend(ZARlist)
+                self.ZAR.extend(quote_lists["ZAR"])
                 self.USDC.clear()
-                self.USDC.extend(USDClist)
+                self.USDC.extend(quote_lists["USDC"])
                 self.USDT.clear()
-                self.USDT.extend(USDTlist)
+                self.USDT.extend(quote_lists["USDT"])
                 self.saveState()
 
         except Exception as e:
@@ -497,111 +449,38 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
         return None
 
 
-def findTrend(session, pair):
-    answer = {"trend": 1, "rsi": 50, "atr": 0, "bars": []}
-    url = f"https://api.valr.com/v1/public/{pair}/markprice/buckets?periodSeconds=86400"
-    shortUrl = (
-        f"https://api.valr.com/v1/public/{pair}/markprice/buckets?periodSeconds=21600"
-    )
-    result = session.get(url)
-    if result.status_code == 200:
-        result = result.json()
-        if len(result) > 61:
-            shortTerm = 0
-            longTerm = 0
-            shortResult = session.get(shortUrl)
-            if shortResult.status_code == 200:
-                shortResult = shortResult.json()
-                shortResult = shortResult[:56]
-            else:
-                print(shortResult.content)
-                shortResult = result[:14]
-
-            for line in result:
-                answer["bars"].append(float(line["close"]))
-
-            shortTerm = float(shortResult[-1]["close"])
-            for line in reversed(shortResult):
-                shortTerm = ((shortTerm * 3) + float(line["close"])) / 4
-
-            # smaShort = 0
-            # for line in shortResult:
-            #    smaShort += float(line["close"])
-            # smaShort = smaShort/len(shortResult)
-            # smaLong = 0
-            # for line in result[:60]:
-            #    smaLong += float(line["close"])
-            # smaLong = smaLong/len(result[:60])
-            # smaTrend = smaShort/smaLong
-
-            longTerm = float(result[61]["close"])
-            for line in reversed(result[:60]):
-                longTerm = ((longTerm * 6) + float(line["close"])) / 7
-            answer["trend"] = trunc((shortTerm / longTerm), 4)
-
-            # wmaTrend = shortTerm/longTerm
-            # print(f"{pair}~ smaTrend:{smaTrend} | wmaTrend:{wmaTrend}")
-
-            up = 0
-            down = 0
-            for key, line in enumerate(shortResult):
-                if len(shortResult) != (key + 1):
-                    change = float(shortResult[key]["close"]) - float(
-                        shortResult[key + 1]["close"]
-                    )
-                    if change > 0:
-                        up += change
-                    else:
-                        down += abs(change)
-            up = up / (len(shortResult) - 1)
-            down = down / (len(shortResult) - 1)
-            answer["rsi"] = trunc(100 - (100 / (1 + (up / down))), 3)
-
-            atr = 0
-            for key, line in enumerate(result[1:]):
-                tr = max(
-                    (float(line["high"]) - float(line["low"])),
-                    abs(float(line["high"]) - float(result[key - 1]["close"])),
-                    abs(float(line["low"]) - float(result[key - 1]["close"])),
-                )
-                atr += tr
-            atr = (atr / (len(result) - 1)) / longTerm
-            answer["atr"] = trunc(atr, 4)
-
-            return answer
-        elif len(result) > 16:
-            printLog(f"Bucket List for {pair} not sufficient for trend", True)
-            print(f"\tBucket size:{len(result)}")
-            shortResult = session.get(shortUrl)
-            if shortResult.status_code == 200:
-                shortResult = shortResult.json()
-            else:
-                print(shortResult.content)
-                shortResult = result[:14]
-                print("Short list not found")
-            up = 0
-            down = 0
-            for key, line in enumerate(shortResult):
-                if len(shortResult) != (key + 1):
-                    change = float(shortResult[key]["close"]) - float(
-                        shortResult[key + 1]["close"]
-                    )
-                    if change > 0:
-                        up += change
-                    else:
-                        down += abs(change)
-            up = up / (len(shortResult) - 1)
-            down = down / (len(shortResult) - 1)
-            answer["rsi"] = trunc(100 - (100 / (1 + (up / down))), 2)
-            return answer
-        else:
-            printLog(f"Bucket List for {pair} not sufficient", True)
-            print(f"\tBucket size:{len(result)}")
-            return answer
-    else:
-        printLog(result.reason, True)
-        print(result.content)
+def findTrend(pair):
+    bars = []
+    short_hours = 14 * 24  # 14 days
+    long_hours = 60 * 24  # 60 days
+    with open("history.json", "r") as f:
+        history = json.load(f)
+        for quote in ["ZAR", "USDC", "USDT"]:
+            if pair.endswith(quote):
+                bars = history[quote][pair[: -len(quote)]]
+    short_bars = bars[:-short_hours]
+    long_bars = bars[:-long_hours]
+    answer = {
+        "trend": 1,
+        "rsi": 50,
+        "atr": 0,
+        "short_step": sum(bar["step"] for bar in short_bars) / len(short_bars),
+        "long_step": sum(bar["step"] for bar in long_bars) / len(long_bars),
+        "short_spread": sum(bar["spread"] for bar in short_bars) / len(short_bars),
+        "long_spread": sum(bar["spread"] for bar in long_bars) / len(long_bars),
+        "bars": [],
+    }
+    if len(bars) < 28:
         return answer
+    short_wma = short_bars[0]["close"]
+    for bar in short_bars[1:]:
+        short_wma = ((short_wma * 11) + bar["close"]) / 12
+    long_wma = long_bars[0]["close"]
+    for bar in long_bars[1:]:
+        long_wma = ((long_wma * 11) + bar["close"]) / 12
+    answer["tend"] = short_wma / long_wma
+
+    return answer
 
 
 def findGeneralTrend(currency, config=Config):
@@ -2471,6 +2350,7 @@ if __name__ == "__main__":
         printLog("Initial state load successful . . .")
     except Exception as e:
         printLog("Failed Loading State . . .", True)
+        print(e)
         config.updateEnv()
         config.saveState()
         config.updateTickers(dataLock, internalSession)
