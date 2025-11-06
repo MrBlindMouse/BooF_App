@@ -152,7 +152,7 @@ class Config:
                                 continue
                             ticker_details["trend"] = indicator_data["trend"]
                             ticker_details["rsi"] = indicator_data["rsi"]
-                            ticker_details["atr"] = indicator_data["art"]
+                            ticker_details["atr"] = indicator_data["atr"]
                             ticker_details["bars"] = indicator_data["bars"]
                             quote_lists[quote].append(ticker_details)
             for quote in ["ZAR", "USDC", "USDT"]:
