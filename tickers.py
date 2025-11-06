@@ -379,7 +379,9 @@ def save_hour_aggregate():
 
         if old_metadata.get("timestamp") == hour_start:
             return  # Already saved previous hour
-        logger.info(f"Hourly save check: current {hour_start}({ts}), last saved {old_metadata.get('timestamp', 'none')}")
+        logger.info(
+            f"Hourly save check: current {hour_start}({ts}), last saved {old_metadata.get('timestamp', 'none')}"
+        )
 
         json_data = {}
         if os.path.exists(history_file):
@@ -397,13 +399,25 @@ def save_hour_aggregate():
                 minute_list = ticker.minutes.copy()
                 minute_list.append(ticker.ohlc.copy())
                 hour_ohlc = aggregate(minute_list)
-                if hour_ohlc:
-                    hour_ohlc["ts"] = hour_start
-                    hour_ohlc["symbol"] = base + quote
-                    json_data[quote][base].append(hour_ohlc)
+                hour_ohlc["ts"] = hour_start
+                hour_ohlc["symbol"] = base + quote
+                if not json_data[quote][base] and hour_ohlc["close"] == 0:
+                    continue
+
+                if hour_ohlc["close"] == 0:
+                    hour_ohlc["open"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["close"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["high"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["low"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["depth"] = json_data[quote][base][-1]["depth"]
+                    hour_ohlc["spread"] = json_data[quote][base][-1]["spread"]
+                    hour_ohlc["step"] = json_data[quote][base][-1]["step"]
+                    hour_ohlc["volume"] = json_data[quote][base][-1]["volume"]
+
+                json_data[quote][base].append(hour_ohlc)
 
         with open(temp_history, "w") as f:
-            json.dump(json_data, f, indent=2)
+            json.dump(json_data, f, indent=4)
 
         metadata = {
             "timestamp": hour_start,
@@ -412,7 +426,7 @@ def save_hour_aggregate():
             "currencies": list(tickers.keys()),
         }
         with open(temp_metadata, "w") as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(metadata, f, indent=4)
 
         os.replace(temp_history, history_file) if os.path.exists(
             history_file
@@ -599,6 +613,9 @@ def avg_step(price_list):
         / ((price_list[i] + price_list[i + 1]) / 2)
         for i in range(len(price_list) - 1)
     ]
+    step = steps[-1]
+    for i in range((len(steps) - 1), reversed=True):
+        step = (step + steps[i + 1]) / 2
     return sum(steps) / len(steps)
 
 
