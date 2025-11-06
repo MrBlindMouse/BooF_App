@@ -133,28 +133,41 @@ class Config:
                         "rsi": 50,
                         "volatility": 1,
                         "atr": 0,
+                        "bars": [],
                     }
                     for quote in ["ZAR", "USDC", "USDT"]:
                         if ticker["ticker"].endswith(quote):
                             ticker_details["base"] = ticker["ticker"][: -len(quote)]
-                            if any(
-                                forbidden in ticker_details["base"]
-                                for forbidden in self.forbidden
-                            ):
+                            if ticker_details["base"] in self.forbidden:
                                 continue
-                            trend = findTrend(ticker["ticker"])
+                            indicator_data = findIndicators(ticker["ticker"])
                             if (
-                                trend["long_step"] > self.minStep
-                                or trend["short_step"] > (self.minStep + 0.01)
+                                indicator_data["long_step"] > self.minStep
+                                or indicator_data["short_step"] > (self.minStep + 0.01)
                             ) or (
-                                trend["long_spread"] > self.minSpread
-                                or trend["short_spread"] > (self.minSpread + 0.01)
+                                indicator_data["long_spread"] > self.minSpread
+                                or indicator_data["short_spread"]
+                                > (self.minSpread + 0.01)
                             ):
                                 continue
-                            ticker_details["trend"] = trend["trend"]
-                            ticker_details["rsi"] = trend["rsi"]
-                            ticker_details["atr"] = trend["art"]
+                            ticker_details["trend"] = indicator_data["trend"]
+                            ticker_details["rsi"] = indicator_data["rsi"]
+                            ticker_details["atr"] = indicator_data["art"]
+                            ticker_details["bars"] = indicator_data["bars"]
                             quote_lists[quote].append(ticker_details)
+            for quote in ["ZAR", "USDC", "USDT"]:
+                ticker_list = quote_lists[quote]
+                market_returns = findMarketReturns(ticker_list)
+                for ticker in ticker_list:
+                    if market_returns:
+                        ticker["volatility"] = (
+                            beta(ticker["bars"], market_returns)
+                            if len(ticker["bars"]) > 21
+                            else 1
+                        )
+                    else:
+                        ticker["volatility"] = 1
+                    ticker.pop("bars")
 
             with lock:
                 printLog("Locking config, updating . . .", True)
@@ -449,7 +462,7 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
         return None
 
 
-def findTrend(pair):
+def findIndicators(pair):
     bars = []
     short_hours = 14 * 24  # 14 days
     long_hours = 60 * 24  # 60 days
@@ -458,6 +471,8 @@ def findTrend(pair):
         for quote in ["ZAR", "USDC", "USDT"]:
             if pair.endswith(quote):
                 bars = history[quote][pair[: -len(quote)]]
+                break
+
     short_bars = bars[:-short_hours]
     long_bars = bars[:-long_hours]
     answer = {
@@ -468,8 +483,10 @@ def findTrend(pair):
         "long_step": sum(bar["step"] for bar in long_bars) / len(long_bars),
         "short_spread": sum(bar["spread"] for bar in short_bars) / len(short_bars),
         "long_spread": sum(bar["spread"] for bar in long_bars) / len(long_bars),
-        "bars": [],
+        "bars": bars,
     }
+
+    # Trend
     if len(bars) < 28:
         return answer
     short_wma = short_bars[0]["close"]
@@ -478,20 +495,42 @@ def findTrend(pair):
     long_wma = long_bars[0]["close"]
     for bar in long_bars[1:]:
         long_wma = ((long_wma * 11) + bar["close"]) / 12
-    answer["tend"] = short_wma / long_wma
+    answer["tend"] = trunc(short_wma / long_wma, 3)
+
+    # RSI
+    up = 0
+    down = 0
+    for i in range(len(short_bars) - 1):
+        change = short_bars[i]["close"] - short_bars[i + 1]["close"]
+        if change > 0:
+            up += change
+        else:
+            down += abs(change)
+    avg_up = up / (len(short_bars) - 1)
+    avg_down = down / (len(short_bars) - 1)
+    if avg_down == 0:
+        answer["rsi"] = 100
+    else:
+        rs = avg_up / avg_down
+        answer["rsi"] = trunc(100 - (100 / 1 + rs), 2)
+
+    # ATR
+    atr = 0
+    for i in range(1, len(long_bars)):
+        prev_close = long_bars[i - 1]["close"]
+        high = long_bars[i]["high"]
+        low = long_bars[i]["low"]
+        tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
+        atr += tr
+    atr = atr / (len(long_bars) - 1)
+    answer["atr"] = trunc(atr / long_wma, 3)
 
     return answer
 
 
 def findGeneralTrend(currency, config=Config):
-    currencyList = []
-    if currency == "ZAR":
-        currencyList = config.ZAR
-    elif currency == "USDC":
-        currencyList = config.USDC
-    elif currency == "USDT":
-        currencyList = config.USDT
-
+    quote_currencies = {"ZAR": config.ZAR, "USDC": config.USDC, "USDT": config.USDT}
+    currencyList = quote_currencies[currency]
     marketTrend = 0
     marketRSI = 0
     for entry in currencyList:
@@ -502,68 +541,47 @@ def findGeneralTrend(currency, config=Config):
     return (trend + ((rsi / 100) + 0.5)) / 2
 
 
-def beta(session, base, quote, bars):
-    """
-    Calculate Beta for given base in quote group
-    """
-    returns = []
-    for ticker in bars:
-        if ticker["ticker"] == base and not ticker["bars"]:
-            printLog(f"Beta for {ticker['ticker']} set to 1", True)
-            return 1  # Ends Beta calcs if ticker does not have bars
+def findMarketReturns(ticker_list):
+    ticker_list = [ticker for ticker in ticker_list if len(ticker["bars"]) > 21]
+    if not ticker_list:
+        return None
+    num_tickers = len(ticker_list)
+    num_bars = min([len(ticker["bars"]) for ticker in ticker_list])
+    closes = [
+        [bar["close"] for bar in ticker["bars"][-num_bars:]] for ticker in ticker_list
+    ]
+    market_returns = []
+    for i in range(1, num_bars):
+        day_returns = [
+            (closes[j][i] - closes[j][i - 1]) / closes[j][i - 1]
+            for j in range(num_tickers)
+            if closes[j][i - 1] != 0
+        ]
+        market_returns.append(sum(day_returns) / len(day_returns))
+    return market_returns
 
-        if ticker["bars"]:
-            printLog(f"Calculating Beta for {ticker['ticker']}")
-            returnList = []
-            for key, value in enumerate(ticker["bars"]):
-                if key != 0:
-                    dailyReturn = (
-                        ticker["bars"][key - 1] - ticker["bars"][key]
-                    ) / ticker["bars"][key]
-                    returnList.append(dailyReturn)
-            avgReturns = sum(returnList) / len(returnList)
-            details = {
-                "ticker": ticker["ticker"],
-                "avgReturn": avgReturns,
-                "returns": returnList,
-            }
-            returns.append(details)
 
-    indexReturns = []
-    days = 100
-    for ticker in returns:
-        if len(ticker["returns"]) < days:
-            days = len(ticker["returns"])
-
-    for day in range(days):
-        avgReturns = 0
-        for ticker in returns:
-            avgReturns += ticker["returns"][day]
-        avgReturns = avgReturns / len(returns)
-        indexReturns.append(avgReturns)
-
-    # Finding variance for index
-    variance = 0
-    indexAvg = sum(indexReturns) / len(indexReturns)
-    for day in range(days):
-        variance += (indexReturns[day] - indexAvg) ** 2
-    variance = variance / days
-
-    # finding covariance
-    beta = 0
-    found = False
-    for ticker in returns:
-        if ticker["ticker"] == base:
-            covariance = 0
-            for day in range(days):
-                covariance += (ticker["returns"][day] - ticker["avgReturn"]) * (
-                    indexReturns[day] - indexAvg
-                )
-            covariance = covariance / days
-            beta = trunc((covariance / variance), 2)
-            found = True
-            break
-    return beta
+def beta(bar_list, market_returns):
+    close_list = [bar["close"] for bar in bar_list]
+    return_list = [
+        (close_list[i] - close_list[i - 1]) / close_list[i - 1]
+        for i in range(1, len(close_list))
+        if close_list[i - 1] != 0
+    ]
+    if len(return_list) > len(market_returns):
+        return_list = return_list[-len(market_returns) :]
+    else:
+        market_returns = market_returns[-len(return_list) :]
+    mean_stock = sum(return_list) / len(return_list)
+    mean_market = sum(market_returns) / len(market_returns)
+    covariance = sum(
+        (sr - mean_stock) * (mr - mean_market)
+        for sr, mr in zip(return_list, market_returns)
+    ) / (len(return_list) - 1)
+    var_market = sum((mr - mean_market) ** 2 for mr in market_returns) / (
+        len(market_returns) - 1
+    )
+    return covariance / var_market if var_market != 0 else 0.0
 
 
 def logPost(snippet, code="2"):
