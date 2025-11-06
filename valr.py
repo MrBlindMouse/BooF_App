@@ -462,6 +462,58 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
         return None
 
 
+def checkDiscontinued(config=Config, bot=db.Bot):
+    accounts = db.getActiveAccounts(bot_id=bot.id)
+
+    quote_list = {"ZAR": config.ZAR, "USDC": config.USDC, "USDT": config.USDT}
+
+    for account in accounts:
+        found = False
+        decimal = 0
+        for ticker in quote_list[bot.currency]:
+            if ticker["base"] == account.base:
+                found = True
+                break
+        if not found:
+            ticker = {}
+            with open("prices.json", "r") as f:
+                file = json.load(f)
+                for entry in file:
+                    if entry["ticker"] == f"{account.base}{bot.currency}":
+                        ticker = entry
+                        break
+            message = db.Message(
+                [0, bot.user_id, "WARNING", f"Delisting {account.base}!"]
+            )
+            message.post()
+            sell_amount = account.volume
+            if account.stake != 0:
+                message = db.Message(
+                    [
+                        0,
+                        bot.user_id,
+                        "INFO",
+                        f"{account.base} has a staked amount, please unstake and sell if desired.",
+                    ]
+                )
+                message.post()
+                sell_amount -= account.stake
+
+            success = trade(
+                "SELL",
+                bot.currency,
+                account.base,
+                bot.key,
+                bot.secret,
+                sell_amount,
+                ticker["decimal"],
+            )
+            if success is not None:
+                bot.equity += trade["value"]
+                bot.update()
+            account.delete()
+
+
 def findIndicators(pair):
     bars = []
     short_hours = 14 * 24  # 14 days
@@ -693,6 +745,10 @@ def botLoop(config=Config):
                 for bot in bots:
                     if bot.user_id == user.id:
                         bot.stop()
+
+    printLog("Checking Discontinued Accounts . . .")
+    for bot in bots:
+        checkDiscontinued(config, bot)
 
     # Sell irrelevant accounts and confirm balances
     printLog("Checking bot balances . . .")
