@@ -1124,12 +1124,12 @@ def checkBalances(config=Config, bot=db.Bot):
                                         ]
                                     )
                                     transaction.post()
-                else:
-                    continue
-
+                
+                printLog(f"Wallet currency({entry["currency"]}) not in active accounts", True)
                 if (
                     not found and entry["currency"] in config.stake
                 ):  # Unstake tickers not on account
+                    printLog(f"Unstaking {entry["currency"]}", True)
                     stake = updateStake(bot.key, bot.secret, entry["currency"])
                     if stake != 0:
                         try:
@@ -1161,6 +1161,7 @@ def checkBalances(config=Config, bot=db.Bot):
                 # Sell tickers not on account
 
                 if not found:  # Sell for ZAR tickers
+                    printLog("Unstaking {entry["currency"]}", True)
                     for ticker in config.ZAR:
                         if ticker["base"] == entry["currency"]:
                             found = True
@@ -1194,8 +1195,7 @@ def checkBalances(config=Config, bot=db.Bot):
                                     )
                                     transaction.post()
                             break
-                else:
-                    continue
+                
 
                 if not found:  # Sell for USDC tickers
                     for ticker in config.USDC:
@@ -1230,9 +1230,7 @@ def checkBalances(config=Config, bot=db.Bot):
                                     )
                                     transaction.post()
                             break
-                else:
-                    continue
-
+                
                 if not found:  # SELL for USDT tickers
                     for ticker in config.USDT:
                         if ticker["base"] == entry["currency"]:
@@ -1266,9 +1264,7 @@ def checkBalances(config=Config, bot=db.Bot):
                                     )
                                     transaction.post()
                             break
-                else:
-                    continue
-
+                
         for account in accounts:
             found = False
             for entry in jsonResponse:
