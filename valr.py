@@ -525,8 +525,8 @@ def findIndicators(pair):
                     bars = history[quote][pair[: -len(quote)]]
                     break
 
-        short_bars = bars[:-short_hours]
-        long_bars = bars[:-long_hours]
+        short_bars = bars[-short_hours:]
+        long_bars = bars[-long_hours:]
         answer = {
             "trend": 1,
             "rsi": 50,
@@ -575,11 +575,11 @@ def findIndicators(pair):
             tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
             atr += tr
         atr = atr / (len(long_bars) - 1)
-        answer["atr"] = trunc(atr / long_wma, 3)
+        answer["atr"] = trunc(atr / long_wma, 3) if long_wma != 0 else 0
 
         return answer
     except Exception as e:
-        e.args = "During findInditacors"
+        e.args = ("During findInditacors",)
         raise
 
 
