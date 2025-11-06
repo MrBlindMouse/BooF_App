@@ -1132,6 +1132,7 @@ def checkBalances(config=Config, bot=db.Bot):
                     not found and entry["currency"] in config.stake
                 ):  # Unstake tickers not on account
                     printLog(f"Unstaking {entry['currency']}", True)
+                    print(str([config.stake]))
                     stake = updateStake(bot.key, bot.secret, entry["currency"])
                     if stake != 0:
                         try:
