@@ -614,7 +614,7 @@ def avg_step(price_list):
         for i in range(len(price_list) - 1)
     ]
     step = steps[-1]
-    for i in range((len(steps) - 1), reversed=True):
+    for i in reversed(range(len(steps) - 1)):
         step = (step + steps[i + 1]) / 2
     return sum(steps) / len(steps)
 
