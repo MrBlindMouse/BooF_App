@@ -85,8 +85,8 @@ class Config:
         self.stake = []
         self.postmarkKey = ""
         self.botTimer = 1
-        self.minSpread = 0.03
-        self.minStep = 0.04
+        self.minSpread = 0.04
+        self.minStep = 0.05
 
     def updateEnv(self):
         """
@@ -138,7 +138,10 @@ class Config:
                     for quote in ["ZAR", "USDC", "USDT"]:
                         if ticker["ticker"].endswith(quote):
                             ticker_details["base"] = ticker["ticker"][: -len(quote)]
-                            if ticker_details["base"] in self.forbidden:
+                            if any(
+                                word in ticker_details["base"]
+                                for word in self.forbidden
+                            ):
                                 continue
                             indicator_data = findIndicators(ticker["ticker"])
                             if (
