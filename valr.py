@@ -514,69 +514,73 @@ def checkDiscontinued(config=Config, bot=db.Bot):
 
 
 def findIndicators(pair):
-    bars = []
-    short_hours = 14 * 24  # 14 days
-    long_hours = 60 * 24  # 60 days
-    with open("history.json", "r") as f:
-        history = json.load(f)
-        for quote in ["ZAR", "USDC", "USDT"]:
-            if pair.endswith(quote):
-                bars = history[quote][pair[: -len(quote)]]
-                break
+    try:
+        bars = []
+        short_hours = 14 * 24  # 14 days
+        long_hours = 60 * 24  # 60 days
+        with open("history.json", "r") as f:
+            history = json.load(f)
+            for quote in ["ZAR", "USDC", "USDT"]:
+                if pair.endswith(quote):
+                    bars = history[quote][pair[: -len(quote)]]
+                    break
 
-    short_bars = bars[:-short_hours]
-    long_bars = bars[:-long_hours]
-    answer = {
-        "trend": 1,
-        "rsi": 50,
-        "atr": 0,
-        "short_step": sum(bar["step"] for bar in short_bars) / len(short_bars),
-        "long_step": sum(bar["step"] for bar in long_bars) / len(long_bars),
-        "short_spread": sum(bar["spread"] for bar in short_bars) / len(short_bars),
-        "long_spread": sum(bar["spread"] for bar in long_bars) / len(long_bars),
-        "bars": bars,
-    }
+        short_bars = bars[:-short_hours]
+        long_bars = bars[:-long_hours]
+        answer = {
+            "trend": 1,
+            "rsi": 50,
+            "atr": 0,
+            "short_step": sum(bar["step"] for bar in short_bars) / len(short_bars),
+            "long_step": sum(bar["step"] for bar in long_bars) / len(long_bars),
+            "short_spread": sum(bar["spread"] for bar in short_bars) / len(short_bars),
+            "long_spread": sum(bar["spread"] for bar in long_bars) / len(long_bars),
+            "bars": bars,
+        }
 
-    # Trend
-    if len(bars) < 28:
-        return answer
-    short_wma = short_bars[0]["close"]
-    for bar in short_bars[1:]:
-        short_wma = ((short_wma * 11) + bar["close"]) / 12
-    long_wma = long_bars[0]["close"]
-    for bar in long_bars[1:]:
-        long_wma = ((long_wma * 11) + bar["close"]) / 12
-    answer["tend"] = trunc(short_wma / long_wma, 3)
+        # Trend
+        if len(bars) < 28:
+            return answer
+        short_wma = short_bars[0]["close"]
+        for bar in short_bars[1:]:
+            short_wma = ((short_wma * 11) + bar["close"]) / 12
+        long_wma = long_bars[0]["close"]
+        for bar in long_bars[1:]:
+            long_wma = ((long_wma * 11) + bar["close"]) / 12
+        answer["tend"] = trunc(short_wma / long_wma, 3)
 
-    # RSI
-    up = 0
-    down = 0
-    for i in range(len(short_bars) - 1):
-        change = short_bars[i]["close"] - short_bars[i + 1]["close"]
-        if change > 0:
-            up += change
+        # RSI
+        up = 0
+        down = 0
+        for i in range(len(short_bars) - 1):
+            change = short_bars[i]["close"] - short_bars[i + 1]["close"]
+            if change > 0:
+                up += change
+            else:
+                down += abs(change)
+        avg_up = up / (len(short_bars) - 1)
+        avg_down = down / (len(short_bars) - 1)
+        if avg_down == 0:
+            answer["rsi"] = 100
         else:
-            down += abs(change)
-    avg_up = up / (len(short_bars) - 1)
-    avg_down = down / (len(short_bars) - 1)
-    if avg_down == 0:
-        answer["rsi"] = 100
-    else:
-        rs = avg_up / avg_down
-        answer["rsi"] = trunc(100 - (100 / 1 + rs), 2)
+            rs = avg_up / avg_down
+            answer["rsi"] = trunc(100 - (100 / 1 + rs), 2)
 
-    # ATR
-    atr = 0
-    for i in range(1, len(long_bars)):
-        prev_close = long_bars[i - 1]["close"]
-        high = long_bars[i]["high"]
-        low = long_bars[i]["low"]
-        tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
-        atr += tr
-    atr = atr / (len(long_bars) - 1)
-    answer["atr"] = trunc(atr / long_wma, 3)
+        # ATR
+        atr = 0
+        for i in range(1, len(long_bars)):
+            prev_close = long_bars[i - 1]["close"]
+            high = long_bars[i]["high"]
+            low = long_bars[i]["low"]
+            tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
+            atr += tr
+        atr = atr / (len(long_bars) - 1)
+        answer["atr"] = trunc(atr / long_wma, 3)
 
-    return answer
+        return answer
+    except Exception as e:
+        e.args = "During findInditacors"
+        raise
 
 
 def findGeneralTrend(currency, config=Config):
@@ -593,46 +597,55 @@ def findGeneralTrend(currency, config=Config):
 
 
 def findMarketReturns(ticker_list):
-    ticker_list = [ticker for ticker in ticker_list if len(ticker["bars"]) > 21]
-    if not ticker_list:
-        return None
-    num_tickers = len(ticker_list)
-    num_bars = min([len(ticker["bars"]) for ticker in ticker_list])
-    closes = [
-        [bar["close"] for bar in ticker["bars"][-num_bars:]] for ticker in ticker_list
-    ]
-    market_returns = []
-    for i in range(1, num_bars):
-        day_returns = [
-            (closes[j][i] - closes[j][i - 1]) / closes[j][i - 1]
-            for j in range(num_tickers)
-            if closes[j][i - 1] != 0
+    try:
+        ticker_list = [ticker for ticker in ticker_list if len(ticker["bars"]) > 21]
+        if not ticker_list:
+            return None
+        num_tickers = len(ticker_list)
+        num_bars = min([len(ticker["bars"]) for ticker in ticker_list])
+        closes = [
+            [bar["close"] for bar in ticker["bars"][-num_bars:]]
+            for ticker in ticker_list
         ]
-        market_returns.append(sum(day_returns) / len(day_returns))
-    return market_returns
+        market_returns = []
+        for i in range(1, num_bars):
+            day_returns = [
+                (closes[j][i] - closes[j][i - 1]) / closes[j][i - 1]
+                for j in range(num_tickers)
+                if closes[j][i - 1] != 0
+            ]
+            market_returns.append(sum(day_returns) / len(day_returns))
+        return market_returns
+    except Exception as e:
+        e.args = ("During findMarketReturns",)
+        raise
 
 
 def beta(bar_list, market_returns):
-    close_list = [bar["close"] for bar in bar_list]
-    return_list = [
-        (close_list[i] - close_list[i - 1]) / close_list[i - 1]
-        for i in range(1, len(close_list))
-        if close_list[i - 1] != 0
-    ]
-    if len(return_list) > len(market_returns):
-        return_list = return_list[-len(market_returns) :]
-    else:
-        market_returns = market_returns[-len(return_list) :]
-    mean_stock = sum(return_list) / len(return_list)
-    mean_market = sum(market_returns) / len(market_returns)
-    covariance = sum(
-        (sr - mean_stock) * (mr - mean_market)
-        for sr, mr in zip(return_list, market_returns)
-    ) / (len(return_list) - 1)
-    var_market = sum((mr - mean_market) ** 2 for mr in market_returns) / (
-        len(market_returns) - 1
-    )
-    return covariance / var_market if var_market != 0 else 0.0
+    try:
+        close_list = [bar["close"] for bar in bar_list]
+        return_list = [
+            (close_list[i] - close_list[i - 1]) / close_list[i - 1]
+            for i in range(1, len(close_list))
+            if close_list[i - 1] != 0
+        ]
+        if len(return_list) > len(market_returns):
+            return_list = return_list[-len(market_returns) :]
+        else:
+            market_returns = market_returns[-len(return_list) :]
+        mean_stock = sum(return_list) / len(return_list)
+        mean_market = sum(market_returns) / len(market_returns)
+        covariance = sum(
+            (sr - mean_stock) * (mr - mean_market)
+            for sr, mr in zip(return_list, market_returns)
+        ) / (len(return_list) - 1)
+        var_market = sum((mr - mean_market) ** 2 for mr in market_returns) / (
+            len(market_returns) - 1
+        )
+        return covariance / var_market if var_market != 0 else 0.0
+    except Exception as e:
+        e.args = ("During beta calculation",)
+        raise
 
 
 def logPost(snippet, code="2"):
