@@ -466,11 +466,10 @@ def checkDiscontinued(config=Config, bot=db.Bot):
     accounts = db.getActiveAccounts(bot_id=bot.id)
 
     quote_list = {"ZAR": config.ZAR, "USDC": config.USDC, "USDT": config.USDT}
-
+    ticker_list = quote_list[bot.currency]
     for account in accounts:
         found = False
-        decimal = 0
-        for ticker in quote_list[bot.currency]:
+        for ticker in ticker_list:
             if ticker["base"] == account.base:
                 found = True
                 break
