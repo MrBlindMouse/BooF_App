@@ -2435,6 +2435,7 @@ if __name__ == "__main__":
         config.updateTickers(dataLock)
 
     else:  # Main operation
+        config.updateTickers(dataLock)
         schedule.every(30).seconds.do(
             user_loop, lock=dataLock, session=internalSession, config=config
         )
