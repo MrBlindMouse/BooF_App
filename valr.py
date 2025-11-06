@@ -201,7 +201,7 @@ class Config:
             if entry["ticker"] == "USDCZAR":
                 self.USDCZAR = float(entry["price"])
             if entry["ticker"] == "USDTZAR":
-                self.USDTZAR = float(entry["markPrice"])
+                self.USDTZAR = float(entry["price"])
 
     def checkVALR(self, session):
         url = "https://api.valr.com/v1/public/status"
