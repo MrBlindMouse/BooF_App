@@ -101,7 +101,7 @@ class Config:
         self.paypalSecret = config["PAYPAL_SECRET"]
         self.verifySalt = config["VERIFY_SALT"]
 
-    def updateTickers(self, lock, session):
+    def updateTickers(self, lock):
         """
         Updates the ticker list, including ticker trend, per quote currency.
         Checks downturn protection rules.
@@ -2231,7 +2231,7 @@ def user_loop(lock, session, config=Config):
 
             config.loadState()
             config.updateEnv()
-            config.updatePrice(session)
+            config.updatePrice()
             config.saveState()
             botLoop(config)
 
@@ -2266,7 +2266,7 @@ def admin_loop(lock, config=Config):
 
 @bmd_logger
 def update_loop(lock, session, config=Config):
-    config.updateTickers(lock, session)
+    config.updateTickers(lock)
 
     downturnStop = 0.9
     upturnStart = 0.98
@@ -2426,13 +2426,13 @@ if __name__ == "__main__":
         print(e)
         config.updateEnv()
         config.saveState()
-        config.updateTickers(dataLock, internalSession)
-        config.updatePrice(internalSession)
+        config.updateTickers(dataLock)
+        config.updatePrice()
         config.saveState()
 
     if running != "running":
         printLog("Running once", True)
-        config.updateTickers(dataLock, internalSession)
+        config.updateTickers(dataLock)
 
     else:  # Main operation
         schedule.every(30).seconds.do(
