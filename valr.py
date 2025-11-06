@@ -1132,7 +1132,6 @@ def checkBalances(config=Config, bot=db.Bot):
                     not found and entry["currency"] in config.stake
                 ):  # Unstake tickers not on account
                     printLog(f"Unstaking {entry['currency']}", True)
-                    print(str([config.stake]))
                     stake = updateStake(bot.key, bot.secret, entry["currency"])
                     if stake != 0:
                         try:
@@ -1164,7 +1163,7 @@ def checkBalances(config=Config, bot=db.Bot):
                 # Sell tickers not on account
 
                 if not found:  # Sell for ZAR tickers
-                    printLog(f"Unstaking {entry['currency']}", True)
+                    printLog(f"{entry['currency']} not found, selling for ZAR", True)
                     for ticker in config.ZAR:
                         if ticker["base"] == entry["currency"]:
                             found = True
@@ -1200,6 +1199,7 @@ def checkBalances(config=Config, bot=db.Bot):
                             break
 
                 if not found:  # Sell for USDC tickers
+                    printLog(f"{entry['currency']} not found, selling for USDC", True)
                     for ticker in config.USDC:
                         if ticker["base"] == entry["currency"]:
                             found = True
@@ -1234,6 +1234,7 @@ def checkBalances(config=Config, bot=db.Bot):
                             break
 
                 if not found:  # SELL for USDT tickers
+                    printLog(f"{entry['currency']} not found, selling for USDT", True)
                     for ticker in config.USDT:
                         if ticker["base"] == entry["currency"]:
                             found = True
