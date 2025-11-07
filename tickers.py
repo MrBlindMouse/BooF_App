@@ -184,17 +184,17 @@ class WebSocketClient:
 
                     await self.flush_queue()
 
-                    if not ping_task or ping_task.done():
-                        logger.info("Starting ping task . . .")
-                        ping_task = asyncio.create_task(self.send_ping())
-                    if not prices_task or prices_task.done():
-                        logger.info("Starting price print task . . .")
-                        prices_task = asyncio.create_task(post_prices())
-                    if not ticker_refresh_task or ticker_refresh_task.done():
-                        logger.info("Starting ticker refresh task . . .")
-                        ticker_refresh_task = asyncio.create_task(
-                            periodic_ticker_refresh(self)
-                        )
+                if not ping_task or ping_task.done():
+                    logger.info("Starting ping task . . .")
+                    ping_task = asyncio.create_task(self.send_ping())
+                if not prices_task or prices_task.done():
+                    logger.info("Starting price print task . . .")
+                    prices_task = asyncio.create_task(post_prices())
+                if not ticker_refresh_task or ticker_refresh_task.done():
+                    logger.info("Starting ticker refresh task . . .")
+                    ticker_refresh_task = asyncio.create_task(
+                        periodic_ticker_refresh(self)
+                    )
 
                 await self.receive_message()
 
