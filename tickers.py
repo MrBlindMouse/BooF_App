@@ -546,7 +546,10 @@ def subscription_data():
             ticker_list.append(f"{base_currency}{quote_currency}")
     return {
         "type": "SUBSCRIBE",
-        "subscriptions": [{"event": "OB_L1_D10_SNAPSHOT", "pairs": ticker_list}],
+        "subscriptions": [
+            {"event": "OB_L1_D10_SNAPSHOT", "pairs": ticker_list},
+            {"event": "NEW_TRADE", "pairs": ticker_list},
+        ],
     }
 
 
@@ -605,63 +608,62 @@ def init_tickers(tickers: Dict[str, Dict]) -> bool:
         return False
 
 
-def avg_step(price_list):
-    if len(price_list) < 2:
-        return 0
-    steps = [
-        abs(price_list[i + 1] - price_list[i])
-        / ((price_list[i] + price_list[i + 1]) / 2)
-        for i in range(len(price_list) - 1)
-    ]
-    step = steps[-1]
-    for i in reversed(range(len(steps) - 1)):
-        step = (step + steps[i + 1]) / 2
-    return sum(steps) / len(steps)
+def snapshotProcess(data):
+    if not data.get("a") or not data.get("b"):
+        return
+
+    ask_price, ask_volume = float(data["a"][0][0]), float(data["a"][0][1])
+    bid_price, bid_volume = float(data["b"][0][0]), float(data["b"][0][1])
+
+    total_volume = ask_volume + bid_volume
+    if total_volume == 0:
+        return
+
+    price = (ask_price * bid_volume + bid_price * ask_volume) / total_volume
+    spread = abs(ask_price - bid_price) / price if price > 0 else 0
+
+    depth = 0
+    for i in range(
+        min(len(data["a"]), len(data["b"]))
+    ):  # Finding total depth within 5% of price
+        if abs(float(data["a"][i][0]) - price) / price <= 0.05:
+            depth += float(data["a"][i][1])
+        if abs(float(data["b"][i][0]) - price) / price <= 0.05:
+            depth += float(data["b"][i][1])
+
+    return {"price": price, "spread": spread, "depth": depth}
 
 
 def process_message(message: Dict[str, Any]):
     global tickers
 
     try:
-        if message["type"] != "OB_L1_D10_SNAPSHOT":
-            return
-        pair_symbol = message["ps"]
-        data = message["d"]
+        if message["type"] == "OB_L1_D10_SNAPSHOT":
+            pair_symbol = message["ps"]
+            data = message["d"]
+            result = snapshotProcess(data)
 
-        if not data.get("a") or not data.get("b"):
-            return
+            for quote_currency in ["ZAR", "USDC", "USDT"]:
+                if pair_symbol.endswith(quote_currency):
+                    base_currency = pair_symbol[: -len(quote_currency)]
+                    if base_currency in tickers[quote_currency]:
+                        tickers[quote_currency][base_currency].live_data(
+                            price=result["price"],
+                            depth=result["depth"],
+                            spread=result["spread"],
+                        )
+                    break
+        elif message["type"] == "NEW_TRADE":
+            pair_symbol = message["currencyPairSymbol"]
+            data = message["data"]
+            volume = float(data["quantity"])
 
-        ask_price, ask_volume = float(data["a"][0][0]), float(data["a"][0][1])
-        bid_price, bid_volume = float(data["b"][0][0]), float(data["b"][0][1])
-
-        total_volume = ask_volume + bid_volume
-        if total_volume == 0:
-            return
-
-        price = (ask_price * bid_volume + bid_price * ask_volume) / total_volume
-        spread = abs(ask_price - bid_price) / price if price > 0 else 0
-
-        ask_step = avg_step([float(entry[0]) for entry in data["a"]])
-        bid_step = avg_step([float(entry[0]) for entry in data["b"]])
-        step = (ask_step + bid_step) / 2
-
-        depth = 0
-        for i in range(
-            min(len(data["a"]), len(data["b"]))
-        ):  # Finding total depth within 2% of price
-            if abs(float(data["a"][i][0]) - price) / float(data["a"][i][0]) <= 0.02:
-                depth += float(data["a"][i][1])
-            if abs(float(data["b"][i][0]) - price) / float(data["b"][i][0]) <= 0.02:
-                depth += float(data["b"][i][1])
-
-        for quote_currency in ["ZAR", "USDC", "USDT"]:
-            if pair_symbol.endswith(quote_currency):
-                base_currency = pair_symbol[: -len(quote_currency)]
-                if base_currency in tickers[quote_currency]:
-                    tickers[quote_currency][base_currency].live_data(
-                        price=price, depth=depth, spread=spread, step=step
-                    )
-                break
+            for quote_currency in ["ZAR", "USDC", "USDT"]:
+                if pair_symbol.endswith(quote_currency):
+                    base_currency = pair_symbol[: -len(quote_currency)]
+                    if base_currency in tickers[quote_currency]:
+                        tickers[quote_currency][base_currency].live_data(volume=volume)
+                    break
 
     except (KeyError, ValueError, IndexError) as e:
         logger.error(f"Error processing message: {e}")
