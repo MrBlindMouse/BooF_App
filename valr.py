@@ -86,7 +86,7 @@ class Config:
         self.postmarkKey = ""
         self.botTimer = 1
         self.minSpread = 0.04
-        self.minStep = 0.05
+        self.minLiquidityRatio = 1
 
     def updateEnv(self):
         """
@@ -144,13 +144,10 @@ class Config:
                             ):
                                 continue
                             indicator_data = findIndicators(ticker["ticker"])
-                            if (
-                                indicator_data["long_step"] > self.minStep
-                                or indicator_data["short_step"] > (self.minStep + 0.01)
-                            ) or (
-                                indicator_data["long_spread"] > self.minSpread
-                                or indicator_data["short_spread"]
-                                > (self.minSpread + 0.01)
+                            if indicator_data[
+                                "long_spread"
+                            ] > self.minSpread or indicator_data["short_spread"] > (
+                                self.minSpread + 0.01
                             ):
                                 continue
                             ticker_details["trend"] = indicator_data["trend"]
@@ -519,27 +516,31 @@ def checkDiscontinued(config=Config, bot=db.Bot):
 def findIndicators(pair):
     try:
         bars = []
-        short_hours = 14 * 24  # 14 days
-        long_hours = 60 * 24  # 60 days
+        day = 24
+        short_hours = 14 * day  # 14 days
+        long_hours = 60 * day  # 60 days
         with open("history.json", "r") as f:
             history = json.load(f)
             for quote in ["ZAR", "USDC", "USDT"]:
                 if pair.endswith(quote):
                     bars = history[quote][pair[: -len(quote)]]
                     break
-
+        day_bars = bars[-day:]
         short_bars = bars[-short_hours:]
         long_bars = bars[-long_hours:]
         answer = {
             "trend": 1,
             "rsi": 50,
             "atr": 0,
-            "short_step": sum(bar["step"] for bar in short_bars) / len(short_bars),
-            "long_step": sum(bar["step"] for bar in long_bars) / len(long_bars),
+            "liquidity_ratio": 0,
             "short_spread": sum(bar["spread"] for bar in short_bars) / len(short_bars),
             "long_spread": sum(bar["spread"] for bar in long_bars) / len(long_bars),
             "bars": bars,
         }
+        # Depth Ratio
+        avg_depth = sum(bar["depth"] for bar in day_bars) / len(day_bars)
+        total_volume = sum(bar["volume"] for bar in day_bars)
+        answer["liquidity_ratio"] = avg_depth / total_volume if total_volume != 0 else 0
 
         # Trend
         if len(bars) < 28:
