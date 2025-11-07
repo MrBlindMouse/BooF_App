@@ -638,10 +638,14 @@ def process_message(message: Dict[str, Any]):
     global tickers
 
     try:
+        if not message or not isinstance(message, dict):
+            return
         if message["type"] == "OB_L1_D10_SNAPSHOT":
             pair_symbol = message["ps"]
             data = message["d"]
             result = snapshotProcess(data)
+            if not result:
+                return
 
             for quote_currency in ["ZAR", "USDC", "USDT"]:
                 if pair_symbol.endswith(quote_currency):
@@ -667,9 +671,10 @@ def process_message(message: Dict[str, Any]):
 
     except (KeyError, ValueError, IndexError) as e:
         logger.error(f"Error processing message: {e}")
-        logger.debug(f"Message content: {json.dumps(message, indent=2)}")
+        logger.debug(f"Message content: {json.dumps(message, indent=4)}")
     except Exception as e:
         logger.error(f"Unexpected error in process_message: {e}")
+        logger.error(f"Message content: {json.dumps(message, indent=4)}")
 
 
 async def post_prices():
