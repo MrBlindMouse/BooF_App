@@ -318,9 +318,9 @@ class Ticker:
                 self.ohlc["ts"] = last_minute
 
             self.ohlc["close"] = price
-            if price > self.ohlc["high"]:
+            if price is not None and price > self.ohlc["high"]:
                 self.ohlc["high"] = price
-            if price < self.ohlc["low"] or self.ohlc["low"] == 0:
+            if price is not None and price < self.ohlc["low"] or self.ohlc["low"] == 0:
                 self.ohlc["low"] = price
             if depth is not None:
                 self.ohlc["depth"] = (
