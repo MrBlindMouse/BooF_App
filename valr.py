@@ -86,7 +86,7 @@ class Config:
         self.postmarkKey = ""
         self.botTimer = 1
         self.minSpread = 0.04
-        self.minLiquidityRatio = 1
+        self.maxLiquidityRatio = 0.01
 
     def updateEnv(self):
         """
@@ -144,10 +144,14 @@ class Config:
                             ):
                                 continue
                             indicator_data = findIndicators(ticker["ticker"])
-                            if indicator_data[
-                                "long_spread"
-                            ] > self.minSpread or indicator_data["short_spread"] > (
-                                self.minSpread + 0.01
+                            if (
+                                indicator_data["long_spread"] > self.minSpread
+                                or indicator_data["short_spread"]
+                                > (self.minSpread + 0.01)
+                                and (
+                                    indicator_data["liquidity_ratio"]
+                                    < self.maxLiquidityRation
+                                )
                             ):
                                 continue
                             ticker_details["trend"] = indicator_data["trend"]
