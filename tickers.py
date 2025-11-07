@@ -399,7 +399,7 @@ def save_hour_aggregate():
                     hour_ohlc["low"] = json_data[quote][base][-1]["close"]
                     hour_ohlc["depth"] = json_data[quote][base][-1]["depth"]
                     hour_ohlc["spread"] = json_data[quote][base][-1]["spread"]
-                    hour_ohlc["volume"] = json_data[quote][base][-1]["volume"]
+                    hour_ohlc["volume"] = 0
 
                 json_data[quote][base].append(hour_ohlc)
 
