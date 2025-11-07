@@ -645,7 +645,6 @@ def process_message(message: Dict[str, Any]):
                         )
                     break
         elif message["type"] == "NEW_TRADE":
-            print(json.dumps(message, indent=4))
             pair_symbol = message["currencyPairSymbol"]
             data = message["data"]
             volume = float(data["quantity"])
