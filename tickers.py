@@ -234,7 +234,6 @@ class Ticker:
             "close": 0,
             "depth": 0,
             "spread": 0,
-            "step": 0,
             "volume": 0,
             "ts": 0,
         }
@@ -255,7 +254,6 @@ class Ticker:
         data["spread"] = sum(entry["spread"] for entry in minute_list) / len(
             minute_list
         )
-        data["step"] = sum(entry["step"] for entry in minute_list) / len(minute_list)
         data["volume"] = self.ohlc["volume"]
         data["active"] = self.active
         data["decimal"] = self.decimal
@@ -281,7 +279,6 @@ class Ticker:
             "close": self.minutes[-1]["close"] if self.minutes else 0,
             "depth": 0,
             "spread": 0,
-            "step": 0,
             "volume": 0,
             "ts": 0,
         }
@@ -291,7 +288,6 @@ class Ticker:
         price: Optional[float] = None,
         depth: Optional[float] = None,
         spread: Optional[float] = None,
-        step: Optional[float] = None,
         volume: Optional[float] = None,
     ):
         """Update live market data"""
@@ -308,7 +304,6 @@ class Ticker:
                 "depth": depth or 0,
                 "spread": spread or 0,
                 "volume": volume or 0,
-                "step": step or 0,
                 "ts": last_minute,
             }
         else:
@@ -334,12 +329,6 @@ class Ticker:
                     if self.ohlc["spread"] != 0
                     else spread
                 )
-            if step is not None:
-                self.ohlc["step"] = (
-                    ((self.ohlc["step"] * 3) + step) / 4
-                    if self.ohlc["step"] != 0
-                    else step
-                )
             if volume is not None:
                 self.ohlc["volume"] += volume
 
@@ -356,7 +345,6 @@ def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         "close": ohlcList[-1]["close"],
         "depth": sum(m["depth"] for m in ohlcList) / len(ohlcList),
         "spread": sum(m["spread"] for m in ohlcList) / len(ohlcList),
-        "step": sum(m["step"] for m in ohlcList) / len(ohlcList),
         "volume": sum(m["volume"] for m in ohlcList),
         "ts": ohlcList[-1]["ts"],
     }
@@ -411,7 +399,6 @@ def save_hour_aggregate():
                     hour_ohlc["low"] = json_data[quote][base][-1]["close"]
                     hour_ohlc["depth"] = json_data[quote][base][-1]["depth"]
                     hour_ohlc["spread"] = json_data[quote][base][-1]["spread"]
-                    hour_ohlc["step"] = json_data[quote][base][-1]["step"]
                     hour_ohlc["volume"] = json_data[quote][base][-1]["volume"]
 
                 json_data[quote][base].append(hour_ohlc)
@@ -733,7 +720,6 @@ def load_history_init():
                     "close": last_bar["close"],
                     "depth": 0,  # Reset non-price fields
                     "spread": 0,
-                    "step": 0,
                     "volume": 0,
                     "ts": int(time.time() // 60) * 60,  # Current minute start
                 }
