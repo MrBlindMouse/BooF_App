@@ -12,8 +12,41 @@ import logging
 import os
 from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
+class LogPostHandler(logging.Handler):
+    def __init__(self, url="https://www.bmd-studios.com/log", app="TickerStream", level=logging.WARNING):
+        super().__init__(level=level)
+        self.url = url
+        self.app = app
+
+    def emit(self, record):
+        snippet = self.format(record)
+        if record.levelno >= logging.CRITICAL:
+            code = "3"
+        elif record.levelno >= logging.WARNING:
+            code = "2"
+        else:
+            return  # Skip non-warning/error
+
+        currentTS = int(time.time())
+        date = datetime.fromtimestamp(currentTS)
+        dateFormat = "%d %b, %Y, %H:%M:%S"
+        printDate = date.strftime(dateFormat)
+        msg = f"{printDate} ~ {snippet}"
+        payload = {"code": code, "app": self.app, "snippet": msg}
+        try:
+            result = requests.post(self.url, json=payload)
+            if result.status_code != 200:
+                print(f"Logging Error: Status code {result.status_code}")
+                print(result.text)
+                print(f"Original log: {snippet}")
+        except Exception as e:
+            print("Logging server down...")
+            print(str(e))
+            print(f"Original log: {snippet}")
+
 logger = logging.getLogger(__name__)
+handler = LogPostHandler(app="BooF_Ticker")
+logger.addHandler(handler)
 
 
 class WebSocketClient:
