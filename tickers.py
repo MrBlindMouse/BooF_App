@@ -369,7 +369,7 @@ class Ticker:
 def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not ohlcList:
         return None
-    lows = [m["low"] for m in ohlcList if m["low"] > 0]
+    lows = [m["low"] for m in ohlcList if m.get('low') is not None and m["low"] > 0]
     min_low = min(lows) if lows else ohlcList[-1]["close"]
     return {
         "open": ohlcList[0]["open"],
@@ -418,7 +418,6 @@ def save_hour_aggregate():
                 ticker = tickers[quote][base]
                 ticker.prune(ts)
                 minute_list = ticker.minutes.copy()
-                minute_list.append(ticker.ohlc.copy())
                 hour_ohlc = aggregate(minute_list)
                 hour_ohlc["ts"] = hour_start
                 hour_ohlc["symbol"] = base + quote
