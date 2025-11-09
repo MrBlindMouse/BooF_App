@@ -387,6 +387,24 @@ def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         "ts": ohlcList[-1]["ts"],
     }
 
+def bmd_report():
+    """Periodic status report to BMD endpoint"""
+    try:
+        url = "https://www.bmd-studios.com/bot"
+        headers = {"accept": "application/json"}
+        total_tickers = sum(len(v) for v in tickers.values())
+        active_tickers = sum(1 for q in tickers.values() for t in q.values() if t.active and t.market)
+        payload = {
+            "id": "04",
+            "bot_name": "BooF Tickers",
+            "ts": str(int(time.time())),
+            "status": f"{active_tickers}/{total_tickers} Tickers",
+        }
+        result = requests.post(url=url, json=payload)
+        result.raise_for_status()
+    except Exception as e:
+        logger.error(f"BMD report failed: {e}")    
+
 
 def save_hour_aggregate():
     global tickers
@@ -718,6 +736,8 @@ async def post_prices():
 
             with open("prices.json", "w") as f:
                 json.dump(dataList, f, indent=4)
+            
+            bmd_report()
 
             await asyncio.sleep(20)
 
