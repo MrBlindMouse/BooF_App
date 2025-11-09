@@ -51,6 +51,7 @@ logger.addHandler(log_post_handler)
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
 
 
 class WebSocketClient:
