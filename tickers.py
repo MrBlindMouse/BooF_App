@@ -289,16 +289,14 @@ class Ticker:
         minute_list.append(self.ohlc)
         data["price"] = self.ohlc["close"]
         data["depth"] = sum(entry["depth"] for entry in minute_list) / len(minute_list)
-        data["spread"] = sum(entry["spread"] for entry in minute_list) / len(
-            minute_list
-        )
+        data["spread"] = sum(entry["spread"] for entry in minute_list) / len(minute_list)
         data["volume"] = self.ohlc["volume"]
         data["active"] = self.active
         data["decimal"] = self.decimal
         data["min_value"] = (
             self.min_quote
-            if self.min_quote > (self.min_base * self.ohlc["close"])
-            else (self.min_base * self.ohlc["close"])
+            if self.min_quote > (self.min_base * (self.ohlc["close"] or 0))
+            else (self.min_base * (self.ohlc["close"] or 0))
         )
         data["market"] = self.market
         data["limit"] = self.limit
@@ -401,7 +399,7 @@ def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         "depth": sum(m.get("depth",0) for m in ohlcList) / len(ohlcList),
         "spread": sum(m.get("spread",0) for m in ohlcList) / len(ohlcList),
         "volume": sum(m.get("volume",0) for m in ohlcList),
-        "ts": ohlcList[-1]["ts"],
+        "ts": ohlcList[-1].get("ts",0),
     }
 
 def save_hour_aggregate():
