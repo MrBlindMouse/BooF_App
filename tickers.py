@@ -767,13 +767,16 @@ async def main():
     """Main entry point"""
     try:
         init_tickers(tickers)
-        load_history_init()  # Always init config, then set OHLC from history if available
+        # Instantiate all tickers first
+        for quote_currency in tickers:
+            for base_currency, ticker_data in tickers[quote_currency].items():
+                tickers[quote_currency][base_currency] = Ticker(ticker_data)
+        load_history_init()  # Now safe to access ticker.ohlc
         ticker_list = []
         for quote_currency in tickers:
             for base_currency, ticker_data in tickers[quote_currency].items():
-                if not isinstance(ticker_data, Ticker):
-                    tickers[quote_currency][base_currency] = Ticker(ticker_data)
                 ticker_list.append(f"{base_currency}{quote_currency}")
+# ... rest unchanged
         if not ticker_list:
             logger.error("No tickers found. Check your .env configuration.")
             return
