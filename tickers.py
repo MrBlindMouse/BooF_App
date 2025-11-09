@@ -388,17 +388,17 @@ def bmd_report():
 def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not ohlcList:
         return None
-    lows = [m.get("low",0) for m in ohlcList if m.get('low') is not None and m.get("low", 0) > 0]
-    min_low = min(lows) if lows else ohlcList[-1].get("close",0)
+    lows = [m.get("low") or 0 for m in ohlcList if m.get('low') is not None and m.get("low", 0) > 0]
+    min_low = min(lows) if lows else ohlcList[-1].get("close")
     return {
-        "open": ohlcList[0].get("open",0),
-        "high": max(m.get("high",0) for m in ohlcList),
+        "open": ohlcList[0].get("open") or 0,
+        "high": max(m.get("high") or 0 for m in ohlcList),
         "low": min_low,
-        "close": ohlcList[-1].get("close",0),
-        "depth": sum(m.get("depth",0) for m in ohlcList) / len(ohlcList),
-        "spread": sum(m.get("spread",0) for m in ohlcList) / len(ohlcList),
-        "volume": sum(m.get("volume",0) for m in ohlcList),
-        "ts": ohlcList[-1].get("ts",0),
+        "close": ohlcList[-1].get("close") or 0,
+        "depth": sum(m.get("depth") or 0 for m in ohlcList) / len(ohlcList),
+        "spread": sum(m.get("spread") or 0 for m in ohlcList) / len(ohlcList),
+        "volume": sum(m.get("volume") or 0 for m in ohlcList),
+        "ts": ohlcList[-1].get("ts") or 0,
     }
 
 def save_hour_aggregate():
