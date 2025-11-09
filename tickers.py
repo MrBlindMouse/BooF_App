@@ -348,11 +348,10 @@ class Ticker:
                 self._reset_ohlc()
                 self.ohlc["ts"] = last_minute
 
-            self.ohlc["close"] = price
-            if price is not None and price > self.ohlc["high"]:
-                self.ohlc["high"] = price
-            if price is not None and price < self.ohlc["low"] or self.ohlc["low"] == 0:
-                self.ohlc["low"] = price
+            if price is not None:
+                self.ohlc["close"] = price
+                self.ohlc["high"] = max(price, self.ohlc.get('high', price))
+                self.ohlc["low"] = min(price, self.ohlc.get('low', price))
             if depth is not None:
                 self.ohlc["depth"] = (
                     ((self.ohlc["depth"] * 3) + depth) / 4
