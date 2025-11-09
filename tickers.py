@@ -9,7 +9,7 @@ from collections import deque
 import hashlib
 import hmac
 import logging
-import os
+import os, sys
 from datetime import datetime
 
 class LogPostHandler(logging.Handler):
@@ -45,8 +45,12 @@ class LogPostHandler(logging.Handler):
             print(f"Original log: {snippet}")
 
 logger = logging.getLogger(__name__)
-handler = LogPostHandler(app="BooF_Ticker")
-logger.addHandler(handler)
+log_post_handler = LogPostHandler(app="BooF_Ticker")
+logger.addHandler(log_post_handler)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
 
 
 class WebSocketClient:
