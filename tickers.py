@@ -370,23 +370,6 @@ class Ticker:
             if volume is not None:
                 self.ohlc["volume"] += volume
 
-
-def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    if not ohlcList:
-        return None
-    lows = [m["low"] for m in ohlcList if m.get('low') is not None and m["low"] > 0]
-    min_low = min(lows) if lows else ohlcList[-1]["close"]
-    return {
-        "open": ohlcList[0]["open"],
-        "high": max(m["high"] for m in ohlcList),
-        "low": min_low,
-        "close": ohlcList[-1]["close"],
-        "depth": sum(m["depth"] for m in ohlcList) / len(ohlcList),
-        "spread": sum(m["spread"] for m in ohlcList) / len(ohlcList),
-        "volume": sum(m["volume"] for m in ohlcList),
-        "ts": ohlcList[-1]["ts"],
-    }
-
 def bmd_report():
     """Periodic status report to BMD endpoint"""
     try:
@@ -403,8 +386,23 @@ def bmd_report():
         result = requests.post(url=url, json=payload)
         result.raise_for_status()
     except Exception as e:
-        logger.error(f"BMD report failed: {e}")    
+        logger.error(f"BMD report failed: {e}")
 
+def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not ohlcList:
+        return None
+    lows = [m["low"] for m in ohlcList if m.get('low') is not None and m["low"] > 0]
+    min_low = min(lows) if lows else ohlcList[-1]["close"]
+    return {
+        "open": ohlcList[0]["open"],
+        "high": max(m["high"] for m in ohlcList),
+        "low": min_low,
+        "close": ohlcList[-1]["close"],
+        "depth": sum(m["depth"] for m in ohlcList) / len(ohlcList),
+        "spread": sum(m["spread"] for m in ohlcList) / len(ohlcList),
+        "volume": sum(m["volume"] for m in ohlcList),
+        "ts": ohlcList[-1]["ts"],
+    }
 
 def save_hour_aggregate():
     global tickers
@@ -443,6 +441,8 @@ def save_hour_aggregate():
                 minute_list = ticker.minutes.copy()
                 minute_list.append(ticker.ohlc.copy())
                 hour_ohlc = aggregate(minute_list)
+                if hour_ohlc is None:
+                    hour_ohlc = {"open": 0, "high": 0, "low": 0, "close": 0, "depth": 0, "spread": 0, "volume": 0}
                 hour_ohlc["ts"] = hour_start
                 hour_ohlc["symbol"] = base + quote
                 if not json_data[quote][base] and hour_ohlc["close"] == 0:
