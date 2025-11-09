@@ -391,16 +391,16 @@ def bmd_report():
 def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not ohlcList:
         return None
-    lows = [m["low"] for m in ohlcList if m.get('low') is not None and m["low"] > 0]
-    min_low = min(lows) if lows else ohlcList[-1]["close"]
+    lows = [m.get("low",0) for m in ohlcList if m.get('low') is not None and m.get("low", 0) > 0]
+    min_low = min(lows) if lows else ohlcList[-1].get("close",0)
     return {
-        "open": ohlcList[0]["open"],
-        "high": max(m["high"] for m in ohlcList),
+        "open": ohlcList[0].get("open",0),
+        "high": max(m.get("high",0) for m in ohlcList),
         "low": min_low,
-        "close": ohlcList[-1]["close"],
-        "depth": sum(m["depth"] for m in ohlcList) / len(ohlcList),
-        "spread": sum(m["spread"] for m in ohlcList) / len(ohlcList),
-        "volume": sum(m["volume"] for m in ohlcList),
+        "close": ohlcList[-1].get("close",0),
+        "depth": sum(m.get("depth",0) for m in ohlcList) / len(ohlcList),
+        "spread": sum(m.get("spread",0) for m in ohlcList) / len(ohlcList),
+        "volume": sum(m.get("volume",0) for m in ohlcList),
         "ts": ohlcList[-1]["ts"],
     }
 
