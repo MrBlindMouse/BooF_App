@@ -423,6 +423,7 @@ def save_hour_aggregate():
                 ticker = tickers[quote][base]
                 ticker.prune(ts)
                 minute_list = ticker.minutes.copy()
+                minute_list.append(ticker.ohlc.copy())
                 hour_ohlc = aggregate(minute_list)
                 hour_ohlc["ts"] = hour_start
                 hour_ohlc["symbol"] = base + quote
