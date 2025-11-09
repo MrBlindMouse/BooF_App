@@ -381,7 +381,7 @@ def bmd_report():
             "id": "04",
             "bot_name": "BooF Tickers",
             "ts": str(int(time.time())),
-            "status": f"{active_tickers}/{total_tickers} Tickers",
+            "status": f"{active_tickers}/{total_tickers}",
         }
         result = requests.post(url=url, json=payload)
         result.raise_for_status()
