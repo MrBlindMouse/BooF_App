@@ -720,9 +720,6 @@ async def post_prices():
             break
 
 
-tickers = {"ZAR": {}, "USDC": {}, "USDT": {}}
-
-
 def load_history_init():
     global tickers
     history_file = "history.json"
@@ -762,15 +759,18 @@ def load_history_init():
         logger.error(f"Failed to load history for init: {e}")
         return False
 
+tickers = {"ZAR": {}, "USDC": {}, "USDT": {}}
 
 async def main():
     """Main entry point"""
     try:
+        logger.info('Initializing tickers . . .')
         init_tickers(tickers)
         # Instantiate all tickers first
         for quote_currency in tickers:
             for base_currency, ticker_data in tickers[quote_currency].items():
                 tickers[quote_currency][base_currency] = Ticker(ticker_data)
+        logger.info('Loading history . . .')
         load_history_init()  # Now safe to access ticker.ohlc
         ticker_list = []
         for quote_currency in tickers:
