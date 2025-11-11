@@ -1152,13 +1152,13 @@ def checkBalances(config:Config, bot:db.Bot):
 
                 else:
                     sold = False
-                    print(f'Log check {currency} 9')
                     for ticker in price_list:
                         if (
                             ticker["ticker"].startswith(entry["currency"])
                             and ticker["market"]
                             and ticker["active"]
                         ):
+                            print(f'Log check {currency} 9')
                             value = available * ticker["price"]
                             if value > ticker["min_value"]:
                                 print(f'Log check {currency} 10')
@@ -1171,19 +1171,23 @@ def checkBalances(config:Config, bot:db.Bot):
                                 and ticker["limit"]
                                 and ticker["active"]
                             ):
+
+                                print(f'Log check {currency} 11')
                                 value = available * ticker["price"]
                                 if value > ticker["min_value"]:
-                                    print(f'Log check {currency} 11')
+                                    print(f'Log check {currency} 12')
                                     sold = limitLiquidate(config, bot, entry, ticker)
                                     break
 
                     if sold:
                         repeat = True
-                print(f'Log check {currency} 12')
+                print(f'Log check {currency} 13')
                 if repeat:
+                    print(f'Log check {currency} 14')
                     balances = fetchBalances(bot = bot)
                     updateQuoteBalance(bot, balances)
                     price_list = fetchPrices()
+                print(f'Log check {currency} 15')
                 
                 
     except Exception as e:
