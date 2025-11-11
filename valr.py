@@ -10,6 +10,8 @@ import datetime, json, pickle, os, sys, traceback, time, datetime, math
 
 import db, postmark, twitter
 
+from collections import defaultdict
+
 """
 Initialise Config and define createSession first.
 """
@@ -85,8 +87,7 @@ class Config:
         self.stake = []
         self.postmarkKey = ""
         self.botTimer = 1
-        self.minSpread = 0.04
-        self.maxLiquidityRatio = 0.01
+        self.minSpread = 0.03
 
     def updateEnv(self):
         """
@@ -134,6 +135,7 @@ class Config:
                         "volatility": 1,
                         "atr": 0,
                         "bars": [],
+                        "liquidity":0,
                     }
                     for quote in ["ZAR", "USDC", "USDT"]:
                         if ticker["ticker"].endswith(quote):
@@ -148,16 +150,13 @@ class Config:
                                 indicator_data["long_spread"] > self.minSpread
                                 or indicator_data["short_spread"]
                                 > (self.minSpread + 0.01)
-                                and (
-                                    indicator_data["liquidity_ratio"]
-                                    < self.maxLiquidityRation
-                                )
                             ):
                                 continue
                             ticker_details["trend"] = indicator_data["trend"]
                             ticker_details["rsi"] = indicator_data["rsi"]
                             ticker_details["atr"] = indicator_data["atr"]
                             ticker_details["bars"] = indicator_data["bars"]
+                            ticker_details["liquidity"] = indicator_data["liquidity_ratio"]
                             quote_lists[quote].append(ticker_details)
             for quote in ["ZAR", "USDC", "USDT"]:
                 ticker_list = quote_lists[quote]
@@ -516,6 +515,23 @@ def checkDiscontinued(config=Config, bot=db.Bot):
                 bot.update()
             account.delete()
 
+def get_daily_ratios(bars) -> float:
+    if not bars:
+        return 0.0
+    day_groups = defaultdict(list)
+    for bar in bars:
+        day_start = bar["ts"] // 86400 * 86400
+        day_groups[day_start].append(bar)
+    sorted_days = sorted(day_groups, reverse=True)[:7]
+    daily_ratios = []
+    for day_ts in sorted_days:
+        group = day_groups[day_ts]
+        if group:
+            depth_avg = sum(b["depth"] for b in group) / len(group)
+            vol_sum = sum(b["volume"] for b in group)
+            ratio = (depth_avg / vol_sum * 100) if vol_sum > 0 else 0
+            daily_ratios.append(ratio)
+    return sum(daily_ratios)/len(daily_ratios)
 
 def findIndicators(pair):
     try:
@@ -542,9 +558,7 @@ def findIndicators(pair):
             "bars": bars,
         }
         # Depth Ratio
-        avg_depth = sum(bar["depth"] for bar in day_bars) / len(day_bars)
-        total_volume = sum(bar["volume"] for bar in day_bars)
-        answer["liquidity_ratio"] = avg_depth / total_volume if total_volume != 0 else 0
+        answer["liquidity_ratio"] = get_daily_ratios(long_bars)
 
         # Trend
         if len(bars) < 28:
