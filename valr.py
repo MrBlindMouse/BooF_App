@@ -11,6 +11,7 @@ import datetime, json, pickle, os, sys, traceback, time, datetime, math
 import db, postmark, twitter
 
 from collections import defaultdict
+from decimal import Decimal, ROUND_HALF_UP
 
 """
 Initialise Config and define createSession first.
@@ -110,11 +111,13 @@ class Config:
             "base": {baseCurrency},
             "price": {markPrice},
             "decimal": {baseDesimalPlaces},
+            "tick": {tickSize},
             "minTrade": {minValue},
             "trend": {trend},
             "rsi": {rsi}
             "volatility": {beta},
-            "atr": {atr%}
+            "atr": {atr%},
+            "liquidity": {depth/volume}
         }
         """
         printLog("Updating tickers . . .", True)
@@ -129,6 +132,7 @@ class Config:
                         "base": "",
                         "price": float(ticker["price"]),
                         "decimal": int(ticker["decimal"]),
+                        "tick":float(ticker["tick"]),
                         "minTrade": float(ticker["min_value"]),
                         "trend": 1,
                         "rsi": 50,
@@ -316,9 +320,10 @@ def updateCurrency(newCurrency, bot=db.Bot):
     accounts = db.getActiveAccounts(bot_id=bot.id)
     for account in accounts:
         decimal = 0
+        tick = 0
         for ticker in currencyList:
             if ticker["base"] == account.base:
-                decimal = ticker["decimal"]
+                decimal = int(ticker["decimal"])
                 break
         result = trade(
             "SELL",
@@ -938,11 +943,14 @@ def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) ->
 def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) -> bool:
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
+    price = Decimal(price_data["price"])
+    tick = Decimal(price_data["tick"])
+    step = (price/tick).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
     
     payload = {
         "side": "SELL",
         "quantity": str(amount),
-        "price": str(price_data["price"]),
+        "price": str(step*tick),
         "pair":price_data["ticker"],
 
     }
