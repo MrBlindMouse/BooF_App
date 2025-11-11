@@ -132,7 +132,7 @@ class Config:
                         "base": "",
                         "price": float(ticker["price"]),
                         "decimal": int(ticker["decimal"]),
-                        "tick":float(ticker["tick"]),
+                        "tick":ticker["tick"],
                         "minTrade": float(ticker["min_value"]),
                         "trend": 1,
                         "rsi": 50,

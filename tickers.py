@@ -279,7 +279,7 @@ class Ticker:
         self.minutes = []
         self.active = bool(data["active"])
         self.decimal = int(data["decimal"])
-        self.tick = float(data["tick"])
+        self.tick = data["tick"]
         self.min_quote = float(data["minQuote"])
         self.min_base = float(data["minBase"])
         self.market = bool(data["market"])
