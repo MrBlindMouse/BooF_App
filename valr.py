@@ -1044,7 +1044,7 @@ def convertQuote(config:Config, bot:db.Bot, balance_entry):
     currency = balance_entry["currency"]
     available = float(balance_entry["available"])
     if currency == bot.currency:
-        return True
+        return False
     conversions = {
         "ZAR": {
             "USDC": ("SELL", "ZAR", "USDC", 1, "WITHDRAW"),
@@ -1081,9 +1081,7 @@ def convertQuote(config:Config, bot:db.Bot, balance_entry):
             )
             transaction.post()
             return True
-        return False
-    else:
-        return True
+    return False
 
 def checkBalances(config:Config, bot:db.Bot):
     """
