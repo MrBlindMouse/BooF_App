@@ -908,12 +908,9 @@ def unStake(config:Config, bot:db.Bot, base):
 
 
 def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) -> bool:
-    print(f'Testing limitLiquidate price_data: {json.dumps(price_data, indent=4)}')
-    print(f'Testing limitLiquidate balance_entry: {json.dumps(balance_entry, indent=4)}')
-
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
-    quote = bot.currency    
+    quote = price_data["ticker"][len(base):]
     if base in config.stake and amount != float(balance_entry["total"]):
         amount += unStake(config, bot, base)
     result = trade(
@@ -945,8 +942,6 @@ def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) ->
 
 
 def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) -> bool:
-    print(f'Testing limitLiquidate price_data: {json.dumps(price_data, indent=4)}')
-    print(f'Testing limitLiquidate balance_entry: {json.dumps(balance_entry, indent=4)}')
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
     price = Decimal(price_data["price"])
@@ -971,6 +966,7 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
         "X-VALR-SIGNATURE": str(sign),
         "X-VALR-TIMESTAMP": str(ts),
     }
+    print(f'Testing limitLiquidate payload: {json.dumps(payload, indent=4)}')
     response = externalSession.post(url=url, headers=headers, json=payload)
     jsonResponse = response.json()
     if response.status_code == 201:
@@ -1168,7 +1164,7 @@ def checkBalances(config:Config, bot:db.Bot):
                             value = available * ticker["price"]
                             if value > ticker["min_value"]:
                                 print(f'Log check {currency} 10')
-                                sold = liquidate(config, bot, entry, ticker)
+                                #sold = liquidate(config, bot, entry, ticker)
                                 break
                     if not sold:
                         for ticker in price_list:   #Withdraw to any currency, limit order
