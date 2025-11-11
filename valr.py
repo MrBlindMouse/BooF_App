@@ -388,6 +388,7 @@ def trade(direction, quote, base, key, secret, amount, decimal=2):
             "X-VALR-SIGNATURE": sign,
             "X-VALR-TIMESTAMP": str(ts),
         }
+        print(f"testing trade: {json.dumps(payload)}")
         response = externalSession.post(url=url, headers=headers, json=payload)
         jsonResponse = response.json()
         if response.status_code != 201:
@@ -965,6 +966,7 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
         "X-VALR-SIGNATURE": str(sign),
         "X-VALR-TIMESTAMP": str(ts),
     }
+    print(f"testing limit order: {json.dumps(payload)}")
     response = externalSession.post(url=url, headers=headers, json=payload)
     jsonResponse = response.json()
     if response.status_code == 201:
