@@ -582,7 +582,7 @@ def findIndicators(pair):
         for i in range(len(short_bars) - 1):
             change = short_bars[i]["close"] - short_bars[i + 1]["close"]
             if change > 0:
-                up += change
+                up += abs(change)
             else:
                 down += abs(change)
         avg_up = up / (len(short_bars) - 1)
@@ -591,19 +591,39 @@ def findIndicators(pair):
             answer["rsi"] = 100
         else:
             rs = avg_up / avg_down
-            answer["rsi"] = trunc(100 - (100 / 1 + rs), 2)
+            answer["rsi"] = trunc(100 - (100 / (1 + rs)), 2)
 
         # ATR
-        atr = 0
-        for i in range(1, len(long_bars)):
-            prev_close = long_bars[i - 1]["close"]
-            high = long_bars[i]["high"]
-            low = long_bars[i]["low"]
-            tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
-            atr += tr
-        atr = atr / (len(long_bars) - 1)
-        answer["atr"] = trunc(atr / long_wma, 3) if long_wma != 0 else 0
+        chrono_bars = long_bars[::-1]
 
+        agg_bars = []
+        for i in range(0, len(chrono_bars), 6):
+            group = chrono_bars[i:i+6]
+            if not group:
+                continue
+            agg_open = group[0]["open"]
+            agg_high = max(b["high"] for b in group)
+            agg_low = min(b["low"] for b in group)
+            agg_close = group[-1]["close"]
+            agg_bars.append({
+                "open": agg_open,
+                "high": agg_high,
+                "low": agg_low,
+                "close": agg_close
+            })
+
+        if len(agg_bars) < 2:
+            answer["atr"] = 0
+        else:
+            atr = 0
+            for i in range(1, len(agg_bars)):
+                prev_close = agg_bars[i - 1]["close"]
+                high = agg_bars[i]["high"]
+                low = agg_bars[i]["low"]
+                tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
+                atr += tr
+            atr = atr / (len(agg_bars) - 1)
+            answer["atr"] = trunc(atr / long_wma, 3) if long_wma != 0 else 0
         return answer
     except Exception as e:
         e.args = ("During findInditacors",)
@@ -2320,20 +2340,11 @@ if __name__ == "__main__":
 
         schedule.every(1).hours.do(admin_loop, lock=dataLock, config=config)
 
-        schedule.every().day.at("03:00").do(
-            thread_update_loop, lock=dataLock, session=internalSession, config=config
-        )
-        schedule.every().day.at("09:00").do(
-            thread_update_loop, lock=dataLock, session=internalSession, config=config
-        )
-        schedule.every().day.at("15:00").do(
-            thread_update_loop, lock=dataLock, session=internalSession, config=config
-        )
-        schedule.every().day.at("21:00").do(
+        schedule.every().hour.do(
             thread_update_loop, lock=dataLock, session=internalSession, config=config
         )
 
-        schedule.every().day.at("12:00").do(xUpdate, config=config)
+        #schedule.every().day.at("12:00").do(xUpdate, config=config)
 
         try:
             while True:
