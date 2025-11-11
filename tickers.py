@@ -12,6 +12,8 @@ import logging
 import os, sys
 from datetime import datetime
 
+from decimal import Decimal, ROUND_HALF_UP
+
 class LogPostHandler(logging.Handler):
     def __init__(self, url="https://www.bmd-studios.com/log", app="TickerStream", level=logging.WARNING):
         super().__init__(level=level)
@@ -288,7 +290,10 @@ class Ticker:
         data = {}
         minute_list = self.minutes.copy()
         minute_list.append(self.ohlc)
-        data["price"] = round(self.ohlc["close"]/self.tick) * self.tick
+        price = Decimal(self.ohlc["close"])
+        tick = Decimal(self.tick)
+        steps = (price/tick).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        data["price"] = steps*tick
         data["depth"] = sum(entry["depth"] for entry in minute_list) / len(minute_list)
         data["spread"] = sum(entry["spread"] for entry in minute_list) / len(minute_list)
         data["volume"] = self.ohlc["volume"]
