@@ -949,7 +949,7 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
     
     payload = {
         "side": "SELL",
-        "quantity": str(amount),
+        "quantity": trunc(str(amount), int(price_data["decimal"])),
         "price": str(step*tick),
         "pair":price_data["ticker"],
 
@@ -1140,6 +1140,7 @@ def checkBalances(config:Config, bot:db.Bot):
                 found = currency in account_tickers
 
                 if found:
+                    print(f'Log check {currency} 8')
                     account = next((account for account in accounts if account.base == currency), None)
                     total = account.stake + available
                     if account.volume != total:
@@ -1149,9 +1150,9 @@ def checkBalances(config:Config, bot:db.Bot):
                         account.update()
                     continue
 
-                    print(f'Log check {currency} 8')
                 else:
                     sold = False
+                    print(f'Log check {currency} 9')
                     for ticker in price_list:
                         if (
                             ticker["ticker"].startswith(entry["currency"])
@@ -1160,9 +1161,9 @@ def checkBalances(config:Config, bot:db.Bot):
                         ):
                             value = available * ticker["price"]
                             if value > ticker["min_value"]:
+                                print(f'Log check {currency} 10')
                                 sold = liquidate(config, bot, entry, ticker)
                                 break
-                    print(f'Log check {currency} 9')
                     if not sold:
                         for ticker in price_list:   #Withdraw to any currency, limit order
                             if (
@@ -1172,12 +1173,13 @@ def checkBalances(config:Config, bot:db.Bot):
                             ):
                                 value = available * ticker["price"]
                                 if value > ticker["min_value"]:
+                                    print(f'Log check {currency} 11')
                                     sold = limitLiquidate(config, bot, entry, ticker)
                                     break
 
                     if sold:
                         repeat = True
-                print(f'Log check {currency} 10')
+                print(f'Log check {currency} 12')
                 if repeat:
                     balances = fetchBalances(bot = bot)
                     updateQuoteBalance(bot, balances)
