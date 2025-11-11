@@ -278,6 +278,7 @@ class Ticker:
         self.minutes = []
         self.active = bool(data["active"])
         self.decimal = int(data["decimal"])
+        self.tick = float(data["tick"])
         self.min_quote = float(data["minQuote"])
         self.min_base = float(data["minBase"])
         self.market = bool(data["market"])
@@ -287,12 +288,13 @@ class Ticker:
         data = {}
         minute_list = self.minutes.copy()
         minute_list.append(self.ohlc)
-        data["price"] = self.ohlc["close"]
+        data["price"] = round(self.ohlc["close"]/self.tick) * self.tick
         data["depth"] = sum(entry["depth"] for entry in minute_list) / len(minute_list)
         data["spread"] = sum(entry["spread"] for entry in minute_list) / len(minute_list)
         data["volume"] = self.ohlc["volume"]
         data["active"] = self.active
         data["decimal"] = self.decimal
+        data["tick"] = self.tick
         data["min_value"] = (
             self.min_quote
             if self.min_quote > (self.min_base * (self.ohlc["close"] or 0))
@@ -607,6 +609,7 @@ def init_tickers(tickers: Dict[str, Dict]) -> bool:
             ticker_data = {
                 "active": bool(entry["active"]),
                 "decimal": entry["baseDecimalPlaces"],
+                "tick": entry["tickSize"],
                 "minQuote": entry["minQuoteAmount"],
                 "minBase": entry["minBaseAmount"],
                 "market": False,
