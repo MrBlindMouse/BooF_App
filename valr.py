@@ -993,9 +993,12 @@ def downturnLiquidation(config:Config, bot:db.Bot, wallet_balances:list, price_l
         sold = False
         available = float(entry["available"])
         for ticker in price_list:   #Withdraw to bot currency
+            ticker_quote = next(quote for quote in ["ZAR","USDC","USDT"] if ticker["ticker"].endswith(quote))
+            ticker_base = ticker["ticker"][:-len(ticker_quote)]
+
             if (
-                ticker["ticker"].startswith(entry["currency"])
-                and ticker["ticker"].endswith(bot.currency)
+                entry["currency"] == ticker_base
+                and bot.currency == ticker_quote
                 and ticker["market"]
                 and ticker["active"]
             ):
@@ -1007,8 +1010,10 @@ def downturnLiquidation(config:Config, bot:db.Bot, wallet_balances:list, price_l
             result = True
             continue
         for ticker in price_list:   #Withdraw to any currency
+            ticker_quote = next(quote for quote in ["ZAR","USDC","USDT"] if ticker["ticker"].endswith(quote))
+            ticker_base = ticker["ticker"][:-len(ticker_quote)]
             if (
-                ticker["ticker"].startswith(entry["currency"])
+                entry["currency"] == ticker_base
                 and ticker["market"]
                 and ticker["active"]
             ):
@@ -1020,8 +1025,11 @@ def downturnLiquidation(config:Config, bot:db.Bot, wallet_balances:list, price_l
             result = True
             continue
         for ticker in price_list:   #Withdraw to any currency, limit order
+            ticker_quote = next(quote for quote in ["ZAR","USDC","USDT"] if ticker["ticker"].endswith(quote))
+            ticker_base = ticker["ticker"][:-len(ticker_quote)]
+
             if (
-                ticker["ticker"].startswith(entry["currency"])
+                entry["currency"] == ticker_base
                 and ticker["limit"]
                 and ticker["active"]
             ):
@@ -1157,8 +1165,10 @@ def checkBalances(config:Config, bot:db.Bot):
                 else:
                     sold = False
                     for ticker in price_list:
+                        ticker_quote = next(quote for quote in ["ZAR","USDC","USDT"] if ticker["ticker"].endswith(quote))
+                        ticker_base = ticker["ticker"][:-len(ticker_quote)]
                         if (
-                            ticker["ticker"].startswith(entry["currency"])
+                            entry["currency"] == ticker_base
                             and ticker["market"]
                             and ticker["active"]
                         ):
@@ -1170,8 +1180,10 @@ def checkBalances(config:Config, bot:db.Bot):
                                 break
                     if not sold:
                         for ticker in price_list:   #Withdraw to any currency, limit order
+                            ticker_quote = next(quote for quote in ["ZAR","USDC","USDT"] if ticker["ticker"].endswith(quote))
+                            ticker_base = ticker["ticker"][:-len(ticker_quote)]
                             if (
-                                ticker["ticker"].startswith(entry["currency"])
+                            entry["currency"] == ticker_base
                                 and ticker["limit"]
                                 and ticker["active"]
                             ):
