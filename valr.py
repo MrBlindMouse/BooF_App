@@ -908,6 +908,9 @@ def unStake(config:Config, bot:db.Bot, base):
 
 
 def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) -> bool:
+    print(f'Testing limitLiquidate price_data: {json.dumps(price_data, indent=4)}')
+    print(f'Testing limitLiquidate balance_entry: {json.dumps(balance_entry, indent=4)}')
+
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
     quote = bot.currency    
@@ -942,6 +945,8 @@ def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) ->
 
 
 def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) -> bool:
+    print(f'Testing limitLiquidate price_data: {json.dumps(price_data, indent=4)}')
+    print(f'Testing limitLiquidate balance_entry: {json.dumps(balance_entry, indent=4)}')
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
     price = Decimal(price_data["price"])
@@ -966,7 +971,6 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
         "X-VALR-SIGNATURE": str(sign),
         "X-VALR-TIMESTAMP": str(ts),
     }
-    print(f"testing limit order: {json.dumps(payload)}")
     response = externalSession.post(url=url, headers=headers, json=payload)
     jsonResponse = response.json()
     if response.status_code == 201:
