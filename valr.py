@@ -1161,7 +1161,7 @@ def checkBalances(config:Config, bot:db.Bot):
                             value = available * ticker["price"]
                             if value > ticker["min_value"]:
                                 sold = liquidate(config, bot, entry, ticker)
-                                brea
+                                break
                     print(f'Log check {currency} 9')
                     if not sold:
                         for ticker in price_list:   #Withdraw to any currency, limit order
