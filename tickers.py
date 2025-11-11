@@ -293,7 +293,7 @@ class Ticker:
         price = Decimal(self.ohlc["close"])
         tick = Decimal(self.tick)
         steps = (price/tick).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-        data["price"] = steps*tick
+        data["price"] = float(steps*tick)
         data["depth"] = sum(entry["depth"] for entry in minute_list) / len(minute_list)
         data["spread"] = sum(entry["spread"] for entry in minute_list) / len(minute_list)
         data["volume"] = self.ohlc["volume"]
