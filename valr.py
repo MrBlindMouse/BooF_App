@@ -967,6 +967,8 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
         "X-VALR-TIMESTAMP": str(ts),
     }
     print(f'Testing limitLiquidate payload: {json.dumps(payload, indent=4)}')
+    print(f'Testing limitLiquidate balance_entry: {json.dumps(balance_entry, indent=4)}')
+    print(f'Testing limitLiquidate price_data: {json.dumps(price_data, indent=4)}')
     response = externalSession.post(url=url, headers=headers, json=payload)
     jsonResponse = response.json()
     if response.status_code == 201:
