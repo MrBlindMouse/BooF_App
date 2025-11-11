@@ -942,6 +942,7 @@ def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) ->
 
 
 def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) -> bool:
+    status = False
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
     price = Decimal(price_data["price"])
@@ -966,9 +967,6 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
         "X-VALR-SIGNATURE": str(sign),
         "X-VALR-TIMESTAMP": str(ts),
     }
-    print(f'Testing limitLiquidate payload: {json.dumps(payload, indent=4)}')
-    print(f'Testing limitLiquidate balance_entry: {json.dumps(balance_entry, indent=4)}')
-    print(f'Testing limitLiquidate price_data: {json.dumps(price_data, indent=4)}')
     response = externalSession.post(url=url, headers=headers, json=payload)
     jsonResponse = response.json()
     if response.status_code == 201:
@@ -979,9 +977,10 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
             f"Market trades for {base} is closed, liquidating via Limit Orders. Please ensure ticker is Closed/liquidated to avoid undue loss."
         ])
         message.post()
+        status = True
     else:
         raise ValueError(jsonResponse["message"])
-    return True
+    return status
 
 
 
@@ -1092,7 +1091,6 @@ def checkBalances(config:Config, bot:db.Bot):
     """
     try:
         printLog("Check Balances")
-        print('Log check 1')
 
         downturnProtection = False
         if not bot.active:
@@ -1112,11 +1110,8 @@ def checkBalances(config:Config, bot:db.Bot):
             "USDT": config.USDT
         }
 
-        print('Log check 2')
         balances = fetchBalances(bot = bot)
-        print('Log check 3')
         updateQuoteBalance(bot, balances)
-        print('Log check 4')
         price_list = fetchPrices()
 
         if downturnProtection:
@@ -1130,7 +1125,6 @@ def checkBalances(config:Config, bot:db.Bot):
 
 
 
-        print('Log check 5')
         repeat = True
         while repeat:
             repeat = False
@@ -1139,20 +1133,18 @@ def checkBalances(config:Config, bot:db.Bot):
                 currency = entry["currency"]
                 available = float(entry["available"])
 
-                print(f'Log check {currency} 6')
                 if currency == bot.currency:
                     continue
                 if currency in quote_currencies:
                     sold = convertQuote(config, bot, entry)
                     if sold:
+                        print(f'Log repeat 1- {entry["currency"]}')
                         repeat = True
                     continue
 
-                print(f'Log check {currency} 7')
                 found = currency in account_tickers
 
                 if found:
-                    print(f'Log check {currency} 8')
                     account = next((account for account in accounts if account.base == currency), None)
                     total = account.stake + available
                     if account.volume != total:
@@ -1172,11 +1164,9 @@ def checkBalances(config:Config, bot:db.Bot):
                             and ticker["market"]
                             and ticker["active"]
                         ):
-                            print(f'Log check {ticker["ticker"]}-{currency} 9')
                             value = available * ticker["price"]
                             if value > ticker["min_value"]:
-                                print(f'Log check {currency} 10')
-                                #sold = liquidate(config, bot, entry, ticker)
+                                sold = liquidate(config, bot, entry, ticker)
                                 break
                     if not sold:
                         for ticker in price_list:   #Withdraw to any currency, limit order
@@ -1186,24 +1176,21 @@ def checkBalances(config:Config, bot:db.Bot):
                             entry["currency"] == ticker_base
                                 and ticker["limit"]
                                 and ticker["active"]
+                                and not ticker["market"]
                             ):
 
-                                print(f'Log check {ticker["ticker"]}-{currency} 11')
                                 value = available * ticker["price"]
                                 if value > ticker["min_value"]:
-                                    print(f'Log check {currency} 12')
                                     sold = limitLiquidate(config, bot, entry, ticker)
                                     break
 
                     if sold:
+                        print(f'Log repeat 2- {entry["currency"]}')
                         repeat = True
-                print(f'Log check {currency} 13')
             if repeat:
-                print(f'Log check {currency} 14')
                 balances = fetchBalances(bot = bot)
                 updateQuoteBalance(bot, balances)
                 price_list = fetchPrices()
-            print(f'Log check {currency} 15')
                 
                 
     except Exception as e:
