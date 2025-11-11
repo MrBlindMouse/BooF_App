@@ -834,7 +834,7 @@ def getSign(secret, ts, verb, path, body=""):  # Oauth signing
 
 
 def fetchBalances(bot:db.Bot):
-    ts = int(time.time()) * 1000
+    ts = int(time.time() * 1000)
     verb = "GET"
     path = "/v1/account/balances"
     body = "?excludeZeroBalances=true"
@@ -1080,6 +1080,7 @@ def checkBalances(config:Config, bot:db.Bot):
     """
     try:
         printLog("Check Balances")
+        print('Log check 1')
 
         downturnProtection = False
         if not bot.active:
@@ -1099,8 +1100,11 @@ def checkBalances(config:Config, bot:db.Bot):
             "USDT": config.USDT
         }
 
+        print('Log check 2')
         balances = fetchBalances(bot = bot)
+        print('Log check 3')
         updateQuoteBalance(bot, balances)
+        print('Log check 4')
         price_list = fetchPrices()
 
         if downturnProtection:
@@ -1114,6 +1118,7 @@ def checkBalances(config:Config, bot:db.Bot):
 
 
 
+        print('Log check 5')
         repeat = True
         while repeat:
             repeat = False
@@ -1122,6 +1127,7 @@ def checkBalances(config:Config, bot:db.Bot):
                 currency = entry["currency"]
                 available = float(entry["available"])
 
+                print(f'Log check {currency} 6')
                 if currency == bot.currency:
                     continue
                 if currency in quote_currencies:
@@ -1130,6 +1136,7 @@ def checkBalances(config:Config, bot:db.Bot):
                         repeat = True
                     continue
 
+                print(f'Log check {currency} 7')
                 found = currency in account_tickers
 
                 if found:
@@ -1142,6 +1149,7 @@ def checkBalances(config:Config, bot:db.Bot):
                         account.update()
                     continue
 
+                    print(f'Log check {currency} 8')
                 else:
                     sold = False
                     for ticker in price_list:
@@ -1153,7 +1161,8 @@ def checkBalances(config:Config, bot:db.Bot):
                             value = available * ticker["price"]
                             if value > ticker["min_value"]:
                                 sold = liquidate(config, bot, entry, ticker)
-                                break
+                                brea
+                    print(f'Log check {currency} 9')
                     if not sold:
                         for ticker in price_list:   #Withdraw to any currency, limit order
                             if (
@@ -1165,9 +1174,10 @@ def checkBalances(config:Config, bot:db.Bot):
                                 if value > ticker["min_value"]:
                                     sold = limitLiquidate(config, bot, entry, ticker)
                                     break
-   
+
                     if sold:
                         repeat = True
+                print(f'Log check {currency} 10')
                 if repeat:
                     balances = fetchBalances(bot = bot)
                     updateQuoteBalance(bot, balances)
