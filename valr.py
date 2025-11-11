@@ -580,7 +580,7 @@ def findIndicators(pair):
         up = 0
         down = 0
         for i in range(len(short_bars) - 1):
-            change = short_bars[i]["close"] - short_bars[i + 1]["close"]
+            change = short_bars[i+1]["close"] - short_bars[i]["close"]
             if change > 0:
                 up += abs(change)
             else:
@@ -594,11 +594,10 @@ def findIndicators(pair):
             answer["rsi"] = trunc(100 - (100 / (1 + rs)), 2)
 
         # ATR
-        chrono_bars = long_bars[::-1]
 
         agg_bars = []
-        for i in range(0, len(chrono_bars), 6):
-            group = chrono_bars[i:i+6]
+        for i in range(0, len(short_bars), 6):
+            group = short_bars[i:i+6]
             if not group:
                 continue
             agg_open = group[0]["open"]
