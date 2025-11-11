@@ -850,7 +850,7 @@ def fetchPrices():
         raise Exception('Error during fetchPrices') from e
 
 def unStake(config:Config, bot:db.Bot, base):
-    stake = updateStake(bot.key, bot.secret, base)
+    stake = returnStake(bot.key, bot.secret, base)
     unstaked = 0
     if stake != 0:
         try:
@@ -1115,7 +1115,7 @@ def checkBalances(config:Config, bot:db.Bot):
                     total = account.stake + available
                     if account.volume != total:
                         if currency in config.stake:
-                            account.stake = updateStake(bot.key, bot.secret, currency)
+                            account.stake = returnStake(bot.key, bot.secret, currency)
                         account.volume = account.stake + available
                         account.update()
                     continue
@@ -1678,7 +1678,7 @@ def setStake(config=Config, bot=db.Bot):
                         logPost(f"During Staking: {e}")
 
 
-def updateStake(key, secret, base):
+def returnStake(key, secret, base):
     "Returns staked volume"
     try:
         ts = int(time.time()) * 1000
