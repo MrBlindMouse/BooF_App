@@ -918,8 +918,11 @@ def unStake(config:Config, bot:db.Bot, base, amount = None):
                 url, headers=headers, json=body
             )
             if response.status_code == 202:
-                json_response = response.json()
-                if json_response["requested"]:
+                if response.content:
+                    json_response = response.json()
+                    if json_response.get("requested", False):
+                        unstaked = stake
+                else:
                     unstaked = stake
             else:
                 msg = f"Error during closing stake: \n<br>{response.reason}<br>{response.content}"
