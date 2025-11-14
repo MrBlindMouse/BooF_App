@@ -1140,7 +1140,9 @@ def checkBalances(config:Config, bot:db.Bot):
                 updateQuoteBalance(bot, balances)
                 price_list = fetchPrices()
 
-
+        staked_cache = {}
+        for currency in config.stake:
+            staked_cache[currency] = returnStake(bot.key, bot.secret, currency)
 
         repeat = True
         while repeat:
@@ -1166,7 +1168,7 @@ def checkBalances(config:Config, bot:db.Bot):
                     total = account.stake + available
                     if account.volume != total:
                         if currency in config.stake:
-                            account.stake = returnStake(bot.key, bot.secret, currency)
+                            account.stake = staked_cache[account.base]
                         account.volume = account.stake + available
                         account.update()
                     continue
@@ -1181,7 +1183,10 @@ def checkBalances(config:Config, bot:db.Bot):
                             and ticker["market"]
                             and ticker["active"]
                         ):
-                            value = available * ticker["price"]
+                            staked = 0
+                            if entry["currency"] in config.stake:
+                                staked = staked_cache[entry["currency"]]
+                            value = (available + staked) * ticker["price"]
                             if value > ticker["min_value"]:
                                 sold = liquidate(config, bot, entry, ticker)
                                 break
@@ -1195,8 +1200,10 @@ def checkBalances(config:Config, bot:db.Bot):
                                 and ticker["active"]
                                 and not ticker["market"]
                             ):
-
-                                value = available * ticker["price"]
+                                staked = 0
+                                if entry["currency"] in config.stake:
+                                    staked = staked_cache[entry["currency"]]
+                                value = (available + staked) * ticker["price"]
                                 if value > ticker["min_value"]:
                                     sold = limitLiquidate(config, bot, entry, ticker)
                                     break
