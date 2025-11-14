@@ -888,8 +888,12 @@ def fetchPrices():
         logPost(f"Error finding prices.json: {e}", '2')
         raise Exception('Error during fetchPrices') from e
 
-def unStake(config:Config, bot:db.Bot, base):
-    stake = returnStake(bot.key, bot.secret, base)
+def unStake(config:Config, bot:db.Bot, base, amount = None):
+    stake = 0
+    if amount is None:
+        stake = returnStake(bot.key, bot.secret, base)
+    else:
+        stake = amount
     unstaked = 0
     if stake != 0:
         try:
@@ -930,8 +934,6 @@ def liquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dict) ->
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
     quote = price_data["ticker"][len(base):]
-    if base in config.stake and amount != float(balance_entry["total"]):
-        amount += unStake(config, bot, base)
     result = trade(
         "SELL",
         quote,
@@ -964,6 +966,7 @@ def limitLiquidate(config:Config, bot:db.Bot, balance_entry:dict, price_data:dic
     status = False
     base = balance_entry["currency"]
     amount = float(balance_entry["available"])
+
     price = Decimal(price_data["price"])
     tick = Decimal(price_data["tick"])
     step = (price/tick).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
@@ -1131,7 +1134,14 @@ def checkBalances(config:Config, bot:db.Bot):
         updateQuoteBalance(bot, balances)
         price_list = fetchPrices()
 
+        staked_cache = {}
+        for currency in config.stake:
+            staked_cache[currency] = returnStake(bot.key, bot.secret, currency)
+
         if downturnProtection:
+            for currency in config.stake:
+                if staked_cache[currency] != 0:
+                    unStake(config, bot, currency, staked_cache[currency])
             sold = downturnLiquidation(config, bot, balances, price_list)
             for account in accounts:
                 account.delete()
@@ -1140,18 +1150,13 @@ def checkBalances(config:Config, bot:db.Bot):
                 updateQuoteBalance(bot, balances)
                 price_list = fetchPrices()
 
-        staked_cache = {}
-        for currency in config.stake:
-            staked_cache[currency] = returnStake(bot.key, bot.secret, currency)
-
         repeat = True
         while repeat:
             repeat = False
 
             for entry in balances:
                 currency = entry["currency"]
-                available = float(entry["available"])
-
+                available = float(entry["available"]) + staked_cache[currency] if currency in config.stake else float(entry["available"])
                 if currency == bot.currency:
                     continue
                 if currency in quote_currencies:
@@ -1165,11 +1170,10 @@ def checkBalances(config:Config, bot:db.Bot):
 
                 if found:
                     account = next((account for account in accounts if account.base == currency), None)
-                    total = account.stake + available
-                    if account.volume != total:
+                    if account.volume != available:
                         if currency in config.stake:
-                            account.stake = staked_cache[account.base]
-                        account.volume = account.stake + available
+                            account.stake = staked_cache[currency]
+                        account.volume = available
                         account.update()
                     continue
 
@@ -1183,10 +1187,9 @@ def checkBalances(config:Config, bot:db.Bot):
                             and ticker["market"]
                             and ticker["active"]
                         ):
-                            staked = 0
-                            if entry["currency"] in config.stake:
-                                staked = staked_cache[entry["currency"]]
-                            value = (available + staked) * ticker["price"]
+                            if entry["currency"] in config.stake and staked_cache[entry["currency"]] != 0:
+                                unStake(config, bot, entry["currency"], staked_cache[entry["currency"]])
+                            value = available * ticker["price"]
                             if value > ticker["min_value"]:
                                 sold = liquidate(config, bot, entry, ticker)
                                 break
@@ -1200,10 +1203,9 @@ def checkBalances(config:Config, bot:db.Bot):
                                 and ticker["active"]
                                 and not ticker["market"]
                             ):
-                                staked = 0
-                                if entry["currency"] in config.stake:
-                                    staked = staked_cache[entry["currency"]]
-                                value = (available + staked) * ticker["price"]
+                                if entry["currency"] in config.stake and staked_cache[currency] != 0:
+                                    unStake(config, bot, currency, staked_cache[currency])
+                                value = available * ticker["price"]
                                 if value > ticker["min_value"]:
                                     sold = limitLiquidate(config, bot, entry, ticker)
                                     break
