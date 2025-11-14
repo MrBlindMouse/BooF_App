@@ -868,6 +868,7 @@ def fetchBalances(bot:db.Bot):
     response = externalSession.get(url, headers=headers, data=payload)
     if response.status_code != 200:
         raise ValueError(f"During fetchBalance: {response.json()["message"]}")
+    print(json.dumps(response.json(), indent=4))
     return response.json()
 
 def updateQuoteBalance(bot:db.Bot, balances:dict):
