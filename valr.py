@@ -326,13 +326,13 @@ def updateCurrency(newCurrency, bot=db.Bot):
                 decimal = int(ticker["decimal"])
                 break
         result = trade(
-            "SELL",
-            account.base,
-            bot.currency,
-            bot.key,
-            bot.secret,
-            account.volume,
-            decimal,
+            direction = "SELL",
+            quote = bot.currency,
+            base = account.base,
+            key = bot.key,
+            secret = bot.secret,
+            amount = account.volume,
+            decimal = decimal,
         )
         if result:
             transaction = db.Transaction(
