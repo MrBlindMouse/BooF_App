@@ -565,16 +565,14 @@ def findIndicators(pair):
         # Depth Ratio
         answer["liquidity_ratio"] = get_daily_ratios(long_bars)
 
-        # Trend
         if len(bars) < 28:
             return answer
-        short_wma = short_bars[0]["close"]
-        for bar in short_bars[1:]:
-            short_wma = ((short_wma * 11) + bar["close"]) / 12
-        long_wma = long_bars[0]["close"]
-        for bar in long_bars[1:]:
-            long_wma = ((long_wma * 11) + bar["close"]) / 12
-        answer["tend"] = trunc(short_wma / long_wma, 3)
+
+        # Trend
+        short_sma = sum([bar["close"] for bar in short_bars])/len(short_bars) 
+        long_sma = sum([bar["close"] for bar in long_bars])/len(long_bars) 
+
+        answer["tend"] = trunc(short_sma / long_sma, 3)
 
         # RSI
         up = 0
