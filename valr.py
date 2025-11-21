@@ -621,7 +621,7 @@ def findIndicators(pair):
                 tr = max((high - low), abs(high - prev_close), abs(prev_close - low))
                 atr += tr
             atr = atr / (len(agg_bars) - 1)
-            answer["atr"] = trunc(atr / long_wma, 3) if long_wma != 0 else 0
+            answer["atr"] = trunc(atr / long_sma, 3) if long_sma != 0 else 0
         return answer
     except Exception as e:
         raise RuntimeError(f"Failed during findIndicators: {e}") from e
@@ -662,7 +662,7 @@ def findMarketReturns(ticker_list):
             market_returns.append(sum(day_returns) / len(day_returns))
         return market_returns
     except Exception as e:
-        raise RuntimeError("Failed during findMarketReturns") from e
+        raise RuntimeError(f"Failed during findMarketReturns: {e}") from e
 
 
 def beta(bar_list, market_returns):
