@@ -1911,7 +1911,7 @@ def creditsFollowUpReminderEmail(config=Config, user=db.User):
 def downturnProtectionEmail(config=Config, user=db.User):
     body = f"""
         <p style='color:black;'>Hey {user.name},</p><br>
-        <p style='color:black;'>You're receiving this email to notify you that one or more of your bots has been paused. The general trend has fallen below 0.9 and Downturn Protection has been activated. Once the trend recovers your bot will automatically resume.</p>
+        <p style='color:black;'>You're receiving this email to notify you that one or more of your bots has been paused. The general trend is concerningly low and Downturn Protection has been activated. Once the trend recovers your bot will automatically resume.</p>
         <p style='color:black;'>If you wish to resume your bot regardless; please go to the bot's config page, deselect 'Downturn Protection', select 'Active' and then click 'Update'</p>
         <p style='color:black;'>If you do not want your bot to resume when the trend recovers, simply de-activate Downturn Protection without activating the bot.</p>
         <p style='color:black;'>We hope everything goes well.</p><br>
@@ -2174,8 +2174,8 @@ def admin_loop(lock, config=Config):
 def update_loop(lock, session, config=Config):
     config.updateTickers(lock)
 
-    downturnStop = 0.9
-    upturnStart = 0.98
+    downturnStop = 0.95
+    upturnStart = 0.99
 
     bots = db.getBots()
     for bot in bots:
