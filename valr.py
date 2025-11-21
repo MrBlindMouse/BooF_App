@@ -169,7 +169,7 @@ class Config:
                     if market_returns:
                         ticker["volatility"] = (
                             beta(ticker["bars"], market_returns)
-                            if len(ticker["bars"]) > 21
+                            if len(ticker["bars"]) > (24*7) #3days
                             else 1
                         )
                     else:
@@ -542,8 +542,8 @@ def findIndicators(pair):
     try:
         bars = []
         day = 24
-        short_hours = 14 * day  # 14 days
-        long_hours = 60 * day  # 60 days
+        short_hours = 7 * day
+        long_hours = 21 * day
         with open("history.json", "r") as f:
             history = json.load(f)
             for quote in ["ZAR", "USDC", "USDT"]:
@@ -644,11 +644,12 @@ def findGeneralTrend(currency, config=Config):
 
 def findMarketReturns(ticker_list):
     try:
-        ticker_list = [ticker for ticker in ticker_list if len(ticker["bars"]) > 21]
+        ticker_list = [ticker for ticker in ticker_list if len(ticker["bars"]) > (24*3)]
         if not ticker_list:
             return None
         num_tickers = len(ticker_list)
         num_bars = min([len(ticker["bars"]) for ticker in ticker_list])
+        num_bars = min(num_bars, (24*7)) #1 week
         closes = [
             [bar["close"] for bar in ticker["bars"][-num_bars:]]
             for ticker in ticker_list
@@ -670,6 +671,7 @@ def findMarketReturns(ticker_list):
 def beta(bar_list, market_returns):
     try:
         close_list = [bar["close"] for bar in bar_list]
+        close_list = close_list[-(24*7):] #1week
         return_list = [
             (close_list[i] - close_list[i - 1]) / close_list[i - 1]
             for i in range(1, len(close_list))
