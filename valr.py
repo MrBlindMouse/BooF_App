@@ -623,8 +623,7 @@ def findIndicators(pair):
             answer["atr"] = trunc(atr / long_wma, 3) if long_wma != 0 else 0
         return answer
     except Exception as e:
-        e.args = ("During findInditacors",)
-        raise
+        raise RuntimeError("Failed during findIndicators") from e
 
 
 def findGeneralTrend(currency, config=Config):
@@ -662,8 +661,7 @@ def findMarketReturns(ticker_list):
             market_returns.append(sum(day_returns) / len(day_returns))
         return market_returns
     except Exception as e:
-        e.args = ("During findMarketReturns",)
-        raise
+        raise RuntimeError("Failed during findMarketReturns") from e
 
 
 def beta(bar_list, market_returns):
