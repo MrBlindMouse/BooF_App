@@ -624,7 +624,7 @@ def findIndicators(pair):
             answer["atr"] = trunc(atr / long_wma, 3) if long_wma != 0 else 0
         return answer
     except Exception as e:
-        raise RuntimeError("Failed during findIndicators") from e
+        raise RuntimeError(f"Failed during findIndicators: {e}") from e
 
 
 def findGeneralTrend(currency, config=Config):
