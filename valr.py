@@ -12,6 +12,7 @@ import db, postmark, twitter
 
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
+from statistics import mean
 
 """
 Initialise Config and define createSession first.
@@ -558,8 +559,8 @@ def findIndicators(pair):
             "rsi": 50,
             "atr": 0,
             "liquidity_ratio": 0,
-            "short_spread": sum(bar["spread"] for bar in short_bars) / len(short_bars),
-            "long_spread": sum(bar["spread"] for bar in long_bars) / len(long_bars),
+            "short_spread": mean(bar["spread"] for bar in short_bars),
+            "long_spread": mean(bar["spread"] for bar in long_bars),
             "bars": bars,
         }
         # Depth Ratio
@@ -569,10 +570,10 @@ def findIndicators(pair):
             return answer
 
         # Trend
-        short_sma = sum([bar["close"] for bar in short_bars])/len(short_bars) 
-        long_sma = sum([bar["close"] for bar in long_bars])/len(long_bars) 
+        short_sma = mean([bar["close"] for bar in short_bars])
+        long_sma = mean([bar["close"] for bar in long_bars])
 
-        answer["tend"] = trunc(short_sma / long_sma, 3)
+        answer["trend"] = round(short_sma / long_sma, 3)
 
         # RSI
         up = 0
