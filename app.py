@@ -191,7 +191,7 @@ def passwordResetEmail(user=db.User):
 
 #Routes
 
-@app.route('/', methods=["GET", "POST"])
+@app.route('/login', methods=["GET", "POST"])
 def login():
     if 'id' in session and session.modified == False:
         return redirect(url_for('home'))
