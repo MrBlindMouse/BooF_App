@@ -4,53 +4,52 @@
     <h2>Market Technical Analysis</h2>
     <div>
     <h3>ZAR</h3>
-    <p style="text-align:center;">Average ZAR pairs Combined Trend: {{ details.ZARTrend }}</p><br>
+    <p style="text-align:center;">Average Combined Trend: {{ details.ZARTrend }}</p><br>
     <table>
         <tr>
             <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">ATR%</th>
         </tr>
         {% for line in details.ZARList %}
         <tr>
-            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend|round(3) }}</td><td>{{ line.rsi|round(1) }}</td><td>{{ line.volatility }}</td><td>{{ (line.atr*100)|round(1) }}%</td>
+            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend|round(3) }}</td><td>{{ line.rsi|round(1) }}</td><td>{{ line.volatility|round(2) }}</td><td>{{ (line.atr*100)|round(1) }}%</td>
         </tr>
         {% endfor %}
     </table>
     </div>
     <div>
     <h3>USDC</h3>
-    <p style="text-align:center;">Average USDC pairs Combined Trend: {{ details.USDCTrend }}</p><br>
+    <p style="text-align:center;">Average Combined Trend: {{ details.USDCTrend }}</p><br>
     <table>
         <tr>
             <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">ATR%</th>
         </tr>
         {% for line in details.USDCList %}
         <tr>
-            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend|round(3) }}</td><td>{{ line.rsi|round(1) }}</td><td>{{ line.volatility }}</td><td>{{ (line.atr*100)|round(1) }}%</td>
+            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend|round(3) }}</td><td>{{ line.rsi|round(1) }}</td><td>{{ line.volatility|round(2) }}</td><td>{{ (line.atr*100)|round(1) }}%</td>
         </tr>
         {% endfor %}
     </table>
     </div>
     <div>
     <h3>USDT</h3>
-    <p style="text-align:center;">Average USDT pairs Combined Trend: {{ details.USDTTrend }}</p><br>
+    <p style="text-align:center;">Average Combined Trend: {{ details.USDTTrend }}</p><br>
     <table>
         <tr>
             <th></th><th style="min-width:60px">Trend</th><th style="min-width:60px">RSI</th><th style="min-width:60px">Beta</th><th style="min-width:60px">ATR%</th>
         </tr>
         {% for line in details.USDTList %}
         <tr>
-            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend|round(3) }}</td><td>{{ line.rsi|round(1) }}</td><td>{{ line.volatility }}</td><td>{{ (line.atr*100)|round(1) }}%</td>
+            <td style="text-align: right;">{{ line.base }} - </td><td>{{ line.trend|round(3) }}</td><td>{{ line.rsi|round(1) }}</td><td>{{ line.volatility|round(2) }}</td><td>{{ (line.atr*100)|round(1) }}%</td>
         </tr>
         {% endfor %}
     </table>
     </div><br>
     <div>
-        <h3>Explanation:</h3>
-        <p><b>Trend</b> is the short-term average market price compared to the long-term average market price of a trading pair. Specifically, it’s the 14-day WMA divided by the 60-day WMA. A value above 1 indicates an uptrend, and below 1 indicates a downtrend.</p>
-        <p><b>RSI</b> is the <a href="https://www.investopedia.com/terms/r/rsi.asp" target="_blank">Relative Strength Index</a> of a trading pair. A value of 50 is neutral with above a uptrend, and below a downtrend.</p>
-        <p>The <b>Combined Trend</b> is the average Trend of all tickers plus normalised average RSI: (avgTrend+((avgRSI/100)+0.5))/2. This shows the general trend of the index, where above 1.1 and below 0.9 indicates extreme trends. Downturn protection is based on this indicator.</p>
-        <p><b><a href="https://www.investopedia.com/terms/b/beta.asp" target="_blank">Beta</a></b> is the relative volatility of a trading pair compared to an index. In this case, the index is the grouping (ZAR, USDC, USDT). A low or negative beta suggests an unrelated or inverse correlation with the broader index, 1 indicates the volatility matches the average and higher is more volatile.</p>
-        <p>And lastly <b>ATR%</b> is the <a href="https://www.investopedia.com/terms/a/atr.asp" target="_blank">Average True Range</a> divided by the 60-day WMA. This gives the average daily movement of a ticker compared to its price.</p>
+    <h3>Explanation:</h3>
+    <p><b>Trend</b> is the short-term average market price compared to the long-term average market price of a trading pair.</p><br>
+    <p><b>RSI</b> is the <a href="https://www.investopedia.com/terms/r/rsi.asp" target="_blank">Relative Strength Index</a> of a trading pair. A value of 50 is neutral with above a uptrend, and below a downtrend.</p><br>
+    <p><b><a href="https://www.investopedia.com/terms/b/beta.asp" target="_blank">Beta</a></b> is the relative volatility of a trading pair compared to an index. In this case, the index is the grouping (ZAR, USDC, USDT).</p><br>
+    <p>And lastly <b>ATR%</b> is the <a href="https://www.investopedia.com/terms/a/atr.asp" target="_blank">Average True Range</a> divided by the SMA.</p><br>
     </div>
     <div class="button-container">
         <a class="button" href="{{ url_for('home') }}">~ Home ~</a>

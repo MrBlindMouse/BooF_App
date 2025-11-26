@@ -191,7 +191,7 @@ def passwordResetEmail(user=db.User):
 
 #Routes
 
-@app.route('/', methods=["GET", "POST"])
+@app.route('/login', methods=["GET", "POST"])
 def login():
     if 'id' in session and session.modified == False:
         return redirect(url_for('home'))
@@ -271,7 +271,7 @@ def login():
             })
         session.pop("message", None)
 
-    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="BooF Bots, Automated Trading Bots for Valr")
+    return render_template('login.html', form=form, turnstileKey=turnstileKey, messages=message, meta="BooF Bots Login, Automated Trading Bots for Valr")
 
 @app.route('/signup', methods=["GET","POST"])
 def signup():
@@ -312,7 +312,7 @@ def signup():
         session["message"] = "Signup Successful! Please log in using email and password"
         valr.logPost("New user signed up",'1')
         return redirect(url_for('login'))
-    return render_template("signup.html", form=form, turnstileKey=turnstileKey, meta="BooF Signup")
+    return render_template("signup.html", form=form, turnstileKey=turnstileKey, meta="BooF Bots Signup")
 
 @app.route('/home')
 def home():
@@ -379,7 +379,7 @@ def home():
         message.delete()
 
 
-    return render_template('home.html', messages=messages, user=user, bots=bots, meta="BooF Home page")
+    return render_template('home.html', messages=messages, user=user, bots=bots, meta="BooF Bots Home page")
 
 @app.route('/botstats/<id>')
 def botstats(id):

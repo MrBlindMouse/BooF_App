@@ -9,11 +9,50 @@ from collections import deque
 import hashlib
 import hmac
 import logging
-import os
+import os, sys
 from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
+
+class LogPostHandler(logging.Handler):
+    def __init__(self, url="https://www.bmd-studios.com/log", app="TickerStream", level=logging.WARNING):
+        super().__init__(level=level)
+        self.url = url
+        self.app = app
+
+    def emit(self, record):
+        snippet = self.format(record)
+        if record.levelno >= logging.CRITICAL:
+            code = "3"
+        elif record.levelno >= logging.WARNING:
+            code = "2"
+        else:
+            return  # Skip non-warning/error
+
+        currentTS = int(time.time())
+        date = datetime.fromtimestamp(currentTS)
+        dateFormat = "%d %b, %Y, %H:%M:%S"
+        printDate = date.strftime(dateFormat)
+        msg = f"{printDate} ~ {snippet}"
+        payload = {"code": code, "app": self.app, "snippet": msg}
+        try:
+            result = requests.post(self.url, json=payload)
+            if result.status_code != 200:
+                print(f"Logging Error: Status code {result.status_code}")
+                print(result.text)
+                print(f"Original log: {snippet}")
+        except Exception as e:
+            print("Logging server down...")
+            print(str(e))
+            print(f"Original log: {snippet}")
+
 logger = logging.getLogger(__name__)
+log_post_handler = LogPostHandler(app="BooF_Ticker")
+logger.addHandler(log_post_handler)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
 
 
 class WebSocketClient:
@@ -184,17 +223,17 @@ class WebSocketClient:
 
                     await self.flush_queue()
 
-                    if not ping_task or ping_task.done():
-                        logger.info("Starting ping task . . .")
-                        ping_task = asyncio.create_task(self.send_ping())
-                    if not prices_task or prices_task.done():
-                        logger.info("Starting price print task . . .")
-                        prices_task = asyncio.create_task(post_prices())
-                    if not ticker_refresh_task or ticker_refresh_task.done():
-                        logger.info("Starting ticker refresh task . . .")
-                        ticker_refresh_task = asyncio.create_task(
-                            periodic_ticker_refresh(self)
-                        )
+                if not ping_task or ping_task.done():
+                    logger.info("Starting ping task . . .")
+                    ping_task = asyncio.create_task(self.send_ping())
+                if not prices_task or prices_task.done():
+                    logger.info("Starting price print task . . .")
+                    prices_task = asyncio.create_task(post_prices())
+                if not ticker_refresh_task or ticker_refresh_task.done():
+                    logger.info("Starting ticker refresh task . . .")
+                    ticker_refresh_task = asyncio.create_task(
+                        periodic_ticker_refresh(self)
+                    )
 
                 await self.receive_message()
 
@@ -234,13 +273,13 @@ class Ticker:
             "close": 0,
             "depth": 0,
             "spread": 0,
-            "step": 0,
             "volume": 0,
             "ts": 0,
         }
         self.minutes = []
         self.active = bool(data["active"])
         self.decimal = int(data["decimal"])
+        self.tick = data["tick"]
         self.min_quote = float(data["minQuote"])
         self.min_base = float(data["minBase"])
         self.market = bool(data["market"])
@@ -252,17 +291,15 @@ class Ticker:
         minute_list.append(self.ohlc)
         data["price"] = self.ohlc["close"]
         data["depth"] = sum(entry["depth"] for entry in minute_list) / len(minute_list)
-        data["spread"] = sum(entry["spread"] for entry in minute_list) / len(
-            minute_list
-        )
-        data["step"] = sum(entry["step"] for entry in minute_list) / len(minute_list)
+        data["spread"] = sum(entry["spread"] for entry in minute_list) / len(minute_list)
         data["volume"] = self.ohlc["volume"]
         data["active"] = self.active
         data["decimal"] = self.decimal
+        data["tick"] = self.tick
         data["min_value"] = (
             self.min_quote
-            if self.min_quote > (self.min_base * self.ohlc["close"])
-            else (self.min_base * self.ohlc["close"])
+            if self.min_quote > (self.min_base * (self.ohlc["close"] or 0))
+            else (self.min_base * (self.ohlc["close"] or 0))
         )
         data["market"] = self.market
         data["limit"] = self.limit
@@ -281,7 +318,6 @@ class Ticker:
             "close": self.minutes[-1]["close"] if self.minutes else 0,
             "depth": 0,
             "spread": 0,
-            "step": 0,
             "volume": 0,
             "ts": 0,
         }
@@ -291,7 +327,6 @@ class Ticker:
         price: Optional[float] = None,
         depth: Optional[float] = None,
         spread: Optional[float] = None,
-        step: Optional[float] = None,
         volume: Optional[float] = None,
     ):
         """Update live market data"""
@@ -308,7 +343,6 @@ class Ticker:
                 "depth": depth or 0,
                 "spread": spread or 0,
                 "volume": volume or 0,
-                "step": step or 0,
                 "ts": last_minute,
             }
         else:
@@ -317,11 +351,10 @@ class Ticker:
                 self._reset_ohlc()
                 self.ohlc["ts"] = last_minute
 
-            self.ohlc["close"] = price
-            if price > self.ohlc["high"]:
-                self.ohlc["high"] = price
-            if price < self.ohlc["low"] or self.ohlc["low"] == 0:
-                self.ohlc["low"] = price
+            if price is not None:
+                self.ohlc["close"] = price
+                self.ohlc["high"] = max(price, self.ohlc.get('high', price))
+                self.ohlc["low"] = min(price, self.ohlc.get('low', price))
             if depth is not None:
                 self.ohlc["depth"] = (
                     ((self.ohlc["depth"] * 3) + depth) / 4
@@ -334,33 +367,42 @@ class Ticker:
                     if self.ohlc["spread"] != 0
                     else spread
                 )
-            if step is not None:
-                self.ohlc["step"] = (
-                    ((self.ohlc["step"] * 3) + step) / 4
-                    if self.ohlc["step"] != 0
-                    else step
-                )
             if volume is not None:
                 self.ohlc["volume"] += volume
 
+def bmd_report():
+    """Periodic status report to BMD endpoint"""
+    try:
+        url = "https://www.bmd-studios.com/bot"
+        headers = {"accept": "application/json"}
+        total_tickers = sum(len(v) for v in tickers.values())
+        active_tickers = sum(1 for q in tickers.values() for t in q.values() if t.active and t.market)
+        payload = {
+            "id": "04",
+            "bot_name": "BooF Tickers",
+            "ts": str(int(time.time())),
+            "status": f"{active_tickers}/{total_tickers}",
+        }
+        result = requests.post(url=url, json=payload)
+        result.raise_for_status()
+    except Exception as e:
+        logger.error(f"BMD report failed: {e}")
 
 def aggregate(ohlcList: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not ohlcList:
         return None
-    lows = [m["low"] for m in ohlcList if m["low"] > 0]
-    min_low = min(lows) if lows else ohlcList[-1]["close"]
+    lows = [m.get("low") or 0 for m in ohlcList if m.get('low') is not None and m.get("low", 0) > 0]
+    min_low = min(lows) if lows else ohlcList[-1].get("close")
     return {
-        "open": ohlcList[0]["open"],
-        "high": max(m["high"] for m in ohlcList),
+        "open": ohlcList[0].get("open") or 0,
+        "high": max(m.get("high") or 0 for m in ohlcList),
         "low": min_low,
-        "close": ohlcList[-1]["close"],
-        "depth": sum(m["depth"] for m in ohlcList) / len(ohlcList),
-        "spread": sum(m["spread"] for m in ohlcList) / len(ohlcList),
-        "step": sum(m["step"] for m in ohlcList) / len(ohlcList),
-        "volume": sum(m["volume"] for m in ohlcList),
-        "ts": ohlcList[-1]["ts"],
+        "close": ohlcList[-1].get("close") or 0,
+        "depth": sum(m.get("depth") or 0 for m in ohlcList) / len(ohlcList),
+        "spread": sum(m.get("spread") or 0 for m in ohlcList) / len(ohlcList),
+        "volume": sum(m.get("volume") or 0 for m in ohlcList),
+        "ts": ohlcList[-1].get("ts") or 0,
     }
-
 
 def save_hour_aggregate():
     global tickers
@@ -379,7 +421,9 @@ def save_hour_aggregate():
 
         if old_metadata.get("timestamp") == hour_start:
             return  # Already saved previous hour
-        logger.info(f"Hourly save check: current {hour_start}({ts}), last saved {old_metadata.get('timestamp', 'none')}")
+        logger.info(
+            f"Hourly save check: current {hour_start}({ts}), last saved {old_metadata.get('timestamp', 'none')}"
+        )
 
         json_data = {}
         if os.path.exists(history_file):
@@ -397,15 +441,35 @@ def save_hour_aggregate():
                 minute_list = ticker.minutes.copy()
                 minute_list.append(ticker.ohlc.copy())
                 hour_ohlc = aggregate(minute_list)
+<<<<<<< HEAD
                 if hour_ohlc:
                     hour_ohlc["ts"] = hour_start
                     hour_ohlc["symbol"] = base + quote
                     json_data[quote][base].append(hour_ohlc)
                     while len(json_data[quote][base]) > 2016: #hours for 3 months
                         json_data[quote][base].pop(0)
+=======
+                if hour_ohlc is None:
+                    hour_ohlc = {"open": 0, "high": 0, "low": 0, "close": 0, "depth": 0, "spread": 0, "volume": 0}
+                hour_ohlc["ts"] = hour_start
+                hour_ohlc["symbol"] = base + quote
+                if not json_data[quote][base] and hour_ohlc["close"] == 0:
+                    continue
+
+                if hour_ohlc["close"] == 0:
+                    hour_ohlc["open"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["close"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["high"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["low"] = json_data[quote][base][-1]["close"]
+                    hour_ohlc["depth"] = json_data[quote][base][-1]["depth"]
+                    hour_ohlc["spread"] = json_data[quote][base][-1]["spread"]
+                    hour_ohlc["volume"] = 0
+
+                json_data[quote][base].append(hour_ohlc)
+>>>>>>> 61ab0d03122088bf6ab6e80777543fa7ae8f5c8c
 
         with open(temp_history, "w") as f:
-            json.dump(json_data, f, indent=2)
+            json.dump(json_data, f, indent=4)
 
         metadata = {
             "timestamp": hour_start,
@@ -414,7 +478,7 @@ def save_hour_aggregate():
             "currencies": list(tickers.keys()),
         }
         with open(temp_metadata, "w") as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(metadata, f, indent=4)
 
         os.replace(temp_history, history_file) if os.path.exists(
             history_file
@@ -534,7 +598,10 @@ def subscription_data():
             ticker_list.append(f"{base_currency}{quote_currency}")
     return {
         "type": "SUBSCRIBE",
-        "subscriptions": [{"event": "OB_L1_D10_SNAPSHOT", "pairs": ticker_list}],
+        "subscriptions": [
+            {"event": "OB_L1_D10_SNAPSHOT", "pairs": ticker_list},
+            {"event": "NEW_TRADE", "pairs": ticker_list},
+        ],
     }
 
 
@@ -552,6 +619,7 @@ def init_tickers(tickers: Dict[str, Dict]) -> bool:
             ticker_data = {
                 "active": bool(entry["active"]),
                 "decimal": entry["baseDecimalPlaces"],
+                "tick": entry["tickSize"],
                 "minQuote": entry["minQuoteAmount"],
                 "minBase": entry["minBaseAmount"],
                 "market": False,
@@ -593,66 +661,73 @@ def init_tickers(tickers: Dict[str, Dict]) -> bool:
         return False
 
 
-def avg_step(price_list):
-    if len(price_list) < 2:
-        return 0
-    steps = [
-        abs(price_list[i + 1] - price_list[i])
-        / ((price_list[i] + price_list[i + 1]) / 2)
-        for i in range(len(price_list) - 1)
-    ]
-    return sum(steps) / len(steps)
+def snapshotProcess(data):
+    if not data.get("a") or not data.get("b"):
+        return
+
+    ask_price, ask_volume = float(data["a"][0][0]), float(data["a"][0][1])
+    bid_price, bid_volume = float(data["b"][0][0]), float(data["b"][0][1])
+
+    total_volume = ask_volume + bid_volume
+    if total_volume == 0:
+        return
+
+    price = (ask_price * bid_volume + bid_price * ask_volume) / total_volume
+    spread = abs(ask_price - bid_price) / price if price > 0 else 0
+
+    depth = 0
+    for i in range(
+        min(len(data["a"]), len(data["b"]))
+    ):  # Finding total depth within 5% of price
+        if abs(float(data["a"][i][0]) - price) / price <= 0.05:
+            depth += float(data["a"][i][1])
+        if abs(float(data["b"][i][0]) - price) / price <= 0.05:
+            depth += float(data["b"][i][1])
+
+    return {"price": price, "spread": spread, "depth": depth}
 
 
 def process_message(message: Dict[str, Any]):
     global tickers
 
     try:
-        if message["type"] != "OB_L1_D10_SNAPSHOT":
+        if not message or not isinstance(message, dict):
             return
-        pair_symbol = message["ps"]
-        data = message["d"]
+        if message["type"] == "OB_L1_D10_SNAPSHOT":
+            pair_symbol = message["ps"]
+            data = message["d"]
+            result = snapshotProcess(data)
+            if not result:
+                return
 
-        if not data.get("a") or not data.get("b"):
-            return
+            for quote_currency in ["ZAR", "USDC", "USDT"]:
+                if pair_symbol.endswith(quote_currency):
+                    base_currency = pair_symbol[: -len(quote_currency)]
+                    if base_currency in tickers[quote_currency]:
+                        tickers[quote_currency][base_currency].live_data(
+                            price=result["price"],
+                            depth=result["depth"],
+                            spread=result["spread"],
+                        )
+                    break
+        elif message["type"] == "NEW_TRADE":
+            pair_symbol = message["currencyPairSymbol"]
+            data = message["data"]
+            volume = float(data["quantity"])
 
-        ask_price, ask_volume = float(data["a"][0][0]), float(data["a"][0][1])
-        bid_price, bid_volume = float(data["b"][0][0]), float(data["b"][0][1])
-
-        total_volume = ask_volume + bid_volume
-        if total_volume == 0:
-            return
-
-        price = (ask_price * bid_volume + bid_price * ask_volume) / total_volume
-        spread = abs(ask_price - bid_price) / price if price > 0 else 0
-
-        ask_step = avg_step([float(entry[0]) for entry in data["a"]])
-        bid_step = avg_step([float(entry[0]) for entry in data["b"]])
-        step = (ask_step + bid_step) / 2
-
-        depth = 0
-        for i in range(
-            min(len(data["a"]), len(data["b"]))
-        ):  # Finding total depth within 2% of price
-            if abs(float(data["a"][i][0]) - price) / float(data["a"][i][0]) <= 0.02:
-                depth += float(data["a"][i][1])
-            if abs(float(data["b"][i][0]) - price) / float(data["b"][i][0]) <= 0.02:
-                depth += float(data["b"][i][1])
-
-        for quote_currency in ["ZAR", "USDC", "USDT"]:
-            if pair_symbol.endswith(quote_currency):
-                base_currency = pair_symbol[: -len(quote_currency)]
-                if base_currency in tickers[quote_currency]:
-                    tickers[quote_currency][base_currency].live_data(
-                        price=price, depth=depth, spread=spread, step=step
-                    )
-                break
+            for quote_currency in ["ZAR", "USDC", "USDT"]:
+                if pair_symbol.endswith(quote_currency):
+                    base_currency = pair_symbol[: -len(quote_currency)]
+                    if base_currency in tickers[quote_currency]:
+                        tickers[quote_currency][base_currency].live_data(volume=volume)
+                    break
 
     except (KeyError, ValueError, IndexError) as e:
         logger.error(f"Error processing message: {e}")
-        logger.debug(f"Message content: {json.dumps(message, indent=2)}")
+        logger.debug(f"Message content: {json.dumps(message, indent=4)}")
     except Exception as e:
         logger.error(f"Unexpected error in process_message: {e}")
+        logger.error(f"Message content: {json.dumps(message, indent=4)}")
 
 
 async def post_prices():
@@ -671,15 +746,14 @@ async def post_prices():
 
             with open("prices.json", "w") as f:
                 json.dump(dataList, f, indent=4)
+            
+            bmd_report()
 
             await asyncio.sleep(20)
 
         except Exception as e:
             logger.error(f"Error in post_prices: {e}")
             break
-
-
-tickers = {"ZAR": {}, "USDC": {}, "USDT": {}}
 
 
 def load_history_init():
@@ -711,7 +785,6 @@ def load_history_init():
                     "close": last_bar["close"],
                     "depth": 0,  # Reset non-price fields
                     "spread": 0,
-                    "step": 0,
                     "volume": 0,
                     "ts": int(time.time() // 60) * 60,  # Current minute start
                 }
@@ -722,18 +795,24 @@ def load_history_init():
         logger.error(f"Failed to load history for init: {e}")
         return False
 
+tickers = {"ZAR": {}, "USDC": {}, "USDT": {}}
 
 async def main():
     """Main entry point"""
     try:
+        logger.info('Initializing tickers . . .')
         init_tickers(tickers)
-        load_history_init()  # Always init config, then set OHLC from history if available
+        # Instantiate all tickers first
+        for quote_currency in tickers:
+            for base_currency, ticker_data in tickers[quote_currency].items():
+                tickers[quote_currency][base_currency] = Ticker(ticker_data)
+        logger.info('Loading history . . .')
+        load_history_init()  # Now safe to access ticker.ohlc
         ticker_list = []
         for quote_currency in tickers:
             for base_currency, ticker_data in tickers[quote_currency].items():
-                if not isinstance(ticker_data, Ticker):
-                    tickers[quote_currency][base_currency] = Ticker(ticker_data)
                 ticker_list.append(f"{base_currency}{quote_currency}")
+# ... rest unchanged
         if not ticker_list:
             logger.error("No tickers found. Check your .env configuration.")
             return

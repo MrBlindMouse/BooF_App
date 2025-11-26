@@ -594,7 +594,7 @@ def getCredits(user_id=None, bot_id=None, type="SUM"):
                     continue
                 else:
                     print("Unknown Credit entry:")
-                    print(entry)
+                    print(entry.__repr__)
 
 
             run_time = run-pause
