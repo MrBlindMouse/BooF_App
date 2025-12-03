@@ -441,14 +441,6 @@ def save_hour_aggregate():
                 minute_list = ticker.minutes.copy()
                 minute_list.append(ticker.ohlc.copy())
                 hour_ohlc = aggregate(minute_list)
-<<<<<<< HEAD
-                if hour_ohlc:
-                    hour_ohlc["ts"] = hour_start
-                    hour_ohlc["symbol"] = base + quote
-                    json_data[quote][base].append(hour_ohlc)
-                    while len(json_data[quote][base]) > 2016: #hours for 3 months
-                        json_data[quote][base].pop(0)
-=======
                 if hour_ohlc is None:
                     hour_ohlc = {"open": 0, "high": 0, "low": 0, "close": 0, "depth": 0, "spread": 0, "volume": 0}
                 hour_ohlc["ts"] = hour_start
@@ -466,7 +458,6 @@ def save_hour_aggregate():
                     hour_ohlc["volume"] = 0
 
                 json_data[quote][base].append(hour_ohlc)
->>>>>>> 61ab0d03122088bf6ab6e80777543fa7ae8f5c8c
 
         with open(temp_history, "w") as f:
             json.dump(json_data, f, indent=4)
