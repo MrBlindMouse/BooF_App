@@ -1,4 +1,4 @@
-import requests, json
+import requests, json, time
 import tweepy
 from dotenv import dotenv_values
 import valr
@@ -51,6 +51,7 @@ def sendTweet(quote_data):
         print(json.dumps(result.data, indent=4))
         tweet_id = int(result.data['id'])
         print(f"Tweet posted: https://x.com/i/status/{tweet_id}")
+        time.sleep(5)
         result = client.create_tweet(
             text = follow_up,
             in_reply_to_tweet_id = tweet_id,

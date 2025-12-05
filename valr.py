@@ -2295,7 +2295,7 @@ def xUpdate(config=Config):
             low = entry
     low_data = f"The worst performing coin is {low["base"]} with {analysis(low["trend"])}"
     high_data = f"The best performing coin is {high["base"]} with {analysis(high["trend"])}"
-    general_data = f"The general crypto market with {analysis(generalTrend)}"
+    general_data = f"The general crypto market has {analysis(generalTrend)}"
 
     choices = [low_data, high_data, general_data]
 
@@ -2353,7 +2353,7 @@ if __name__ == "__main__":
             thread_update_loop, lock=dataLock, session=internalSession, config=config
         )
 
-        schedule.every().day.at("13:07").do(xUpdate, config=config)
+        schedule.every().day.at("10:37").do(xUpdate, config=config)
 
         try:
             while True:
