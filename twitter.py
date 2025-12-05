@@ -18,11 +18,14 @@ def sendTweet(quote_data):
     attempts = 0
     max_attempts = 5
     while attempts < max_attempts:
+        post = None
         try:
             post = generate_post(quote_data)
         except Exception as e:
             print(f"Error during post generation: {e}")
             attempts += 1
+            continue
+        if post is None:
             continue
         post = post.strip('"')
         post = post.strip("'")
@@ -31,8 +34,8 @@ def sendTweet(quote_data):
         if len(post) <= 280 and len(post) > 70:
             break
 
-    if len(post) > 280:
-        print("Failed to generate under 280 chars after max attempts.")
+    if len(post) > 280 and len(post) <= 70:
+        print("Failed to generate valid post after max attempts.")
         return
 
     client = tweepy.Client(
@@ -60,14 +63,18 @@ def sendTweet(quote_data):
             print(f"Twitter error details: {e.response.data}")
 
 def generate_post(quote_data):
-    groq_client = Groq(api_key=groqKey)
-    prompt = f"Generate a short crypto market update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'. Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end. Avoid any dates, times, specifics or predictions you might get wrong, or hints you're an AI—sound like a human crypto trader."
-    response = groq_client.chat.completions.create(
-        model="openai/gpt-oss-20b",  # Or another Groq model
-        messages=[
-            {"role": "system", "content": "You are a crypto reporter on twitter."},
-            {"role": "user", "content": prompt}
+    try:
+        groq_client = Groq(api_key=groqKey)
+        prompt = f"Generate a short crypto market update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'. Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end. Avoid any dates, times, specifics or predictions you might get wrong, or hints you're an AI—sound like a human crypto trader."
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",  # Or another Groq model
+            messages=[
+                {"role": "system", "content": "You are a crypto reporter on twitter"},
+                {"role": "user", "content": prompt}
             ],
-        max_completion_tokens=512
-    )
-    return response.choices[0].message.content.strip()
+            max_tokens=512,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        raise ValueError(e)
