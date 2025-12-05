@@ -2260,16 +2260,17 @@ def update_loop(lock, session, config=Config):
 
 
 def analysis(trend:float) -> str:
+    print_trend = trunc(str(abs(1-trend)*100),2)
     if trend > 0.98 and trend < 1.02:
-        return f"a Stable trend at {trend}"
+        return f"a stable trend at {print_trend}"
     elif trend <= 0.98 and trend > 0.95:
-        return f"a Downwards trend at {trend}"
+        return f"a moderate downwards trend at {print_trend}"
     elif trend <= 0.95:
-        return f"an Extremely negative at {trend}"
+        return f"an strong negative at {print_trend}"
     elif trend >= 1.02 and trend < 1.05:
-        return f"an Upwards trend at {trend}"
+        return f"a moderate upwards trend at {print_trend}"
     elif trend >= 1.05:
-        return f"an Extremely strong trend at {trend}"
+        return f"an strong upwards trend at {print_trend}"
 
 
 @bmd_logger
@@ -2292,9 +2293,9 @@ def xUpdate(config=Config):
             high = entry
         if entry["trend"] < low["trend"]:
             low = entry
-    low_data = f"The worst performing coin is {low["base"]} with {analysis(low["trend"])} out of 1, where 1 is neutral/horizontal"
-    high_data = f"The best performing coin is {high["base"]} with {analysis(high["trend"])} out of 1, where 1 is neutral/horizontal"
-    general_data = f"The general market with {analysis(generalTrend)}  out of 1, where 1 is neutral/horizontal"
+    low_data = f"The worst performing coin is {low["base"]} with {analysis(low["trend"])}"
+    high_data = f"The best performing coin is {high["base"]} with {analysis(high["trend"])}"
+    general_data = f"The general crypto market with {analysis(generalTrend)}"
 
     choices = [low_data, high_data, general_data]
 
