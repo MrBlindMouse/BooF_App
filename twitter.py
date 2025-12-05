@@ -61,8 +61,11 @@ def generate_post(quote_data):
     groq_client = Groq(api_key=groqKey)
     prompt = f"Generate a short crypto market update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'. Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end. Avoid any dates, times, specifics or predictions you might get wrong, or hints you're an AI—sound like a human crypto trader."
     response = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",  # Or another Groq model
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=100
+        model="openai/gpt-oss-20b",  # Or another Groq model
+        messages=[
+            {"role": "system", "content": "You are a crypto reporter on twitter."},
+            {"role": "user", "content": prompt}
+            ],
+        max_completion_tokens=512
     )
     return response.choices[0].message.content.strip()
