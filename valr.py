@@ -2260,17 +2260,21 @@ def update_loop(lock, session, config=Config):
 
 
 def analysis(trend:float) -> str:
-    print_trend = trunc(str(abs(1-trend)*100),2)
+    print_trend = trunc(str(abs(1-trend)*100),1)
     if trend > 0.98 and trend < 1.02:
-        return f"a stable trend at {print_trend}%"
+        return f"a stable trend at {'-' if trend < 1 else ''}{print_trend}%"
     elif trend <= 0.98 and trend > 0.95:
-        return f"a moderate downwards trend at {print_trend}%"
-    elif trend <= 0.95:
-        return f"a strong negative at {print_trend}%"
+        return f"a moderate downwards trend at -{print_trend}%"
+    elif trend <= 0.95 and trend > 0.91:
+        return f"a strong downwards trend at -{print_trend}%"
+    elif trend <= 0.91:
+        return f"a extreme downwards trend at -{print_trend}%(WARNING)"
     elif trend >= 1.02 and trend < 1.05:
         return f"a moderate upwards trend at {print_trend}%"
-    elif trend >= 1.05:
+    elif trend >= 1.05 and trend < 1.09:
         return f"a strong upwards trend at {print_trend}%"
+    elif trend >= 1.09:
+        return f"a extreme upwards trend at {print_trend}%(WARNING)"
 
 
 @bmd_logger
