@@ -12,3 +12,4 @@ gunicorn
 tweepy
 websockets
 asyncio
+groq

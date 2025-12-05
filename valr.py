@@ -8,7 +8,7 @@ import ast
 import schedule, threading
 import datetime, json, pickle, os, sys, traceback, time, datetime, math
 
-import db, postmark, twitter
+import db, postmark, twitter, random
 
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
@@ -2258,47 +2258,47 @@ def update_loop(lock, session, config=Config):
     logPost(f"{reportString}<br>{ZARString}{USDCString}{USDTString}", "1")
 
 
-def trendSort(value):
-    trend = (float(value["trend"]) + ((float(value["rsi"]) / 100) + 0.5)) / 2
-    return trend
+
+def analysis(trend:float) -> str:
+    if trend > 0.98 and trend < 1.02:
+        return f"a Stable trend at {trend}"
+    elif trend <= 0.98 and trend > 0.95:
+        return f"a Downwards trend at {trend}"
+    elif trend <= 0.95:
+        return f"an Extremely negative at {trend}"
+    elif trend >= 1.02 and trend < 1.05:
+        return f"an Upwards trend at {trend}"
+    elif trend >= 1.05:
+        return f"an Extremely strong trend at {trend}"
 
 
 @bmd_logger
 def xUpdate(config=Config):
     generalTrend = findGeneralTrend("USDT", config)
 
-    trendList = config.USDC[:]
-    trendList.sort(key=trendSort, reverse=True)
-
-    high = trendList[0]
-    low = trendList[0]
+    trendList = config.USDT
+    trends = []
     for entry in trendList:
-        if entry["rsi"] > high["ris"]:
+        data={
+            'base':entry['base'],
+            'trend': (float(entry["trend"]) + ((float(entry["rsi"]) / 100) + 0.5)) / 2
+        }
+        trends.append(data)
+
+    high = trends[0]
+    low = trends[0]
+    for entry in trends[1:]:
+        if entry["trend"] > high["trend"]:
             high = entry
-        if entry["rsi"] < low["rsi"]:
+        if entry["trend"] < low["trend"]:
             low = entry
+    low_data = f"The worst performing coin is {low["base"]} with {analysis(low["trend"])} out of 1, where 1 is neutral/horizontal"
+    high_data = f"The best performing coin is {high["base"]} with {analysis(high["trend"])} out of 1, where 1 is neutral/horizontal"
+    general_data = f"The general market with {analysis(generalTrend)}  out of 1, where 1 is neutral/horizontal"
 
-    msg = "Crypto Trend Update: "
-    trendStrings = []
-    for entry in trendList:
-        trendStrings.append(
-            f"{entry['base']} Trend:{trunc(entry['trend'], 2)} RSI:{int(entry['rsi'])}"
-        )
-    msg += " | ".join(trendStrings)
-    fire = ""
-    if generalTrend > 1.08:
-        fire = "🚀"
-    elif generalTrend > 1.02:
-        fire = "🔥"
-    elif generalTrend < 0.92:
-        fire = "❄️"
-    elif generalTrend < 0.98:
-        fire = "🌧️"
-    elif generalTrend < 1.02 and generalTrend > 0.98:
-        fire = "😐"
-    msg += f". The General Market Trend is {trunc(generalTrend, 2)} {fire}. "
-    msg += "Powered by boof-bots.com and Valr #CryptoTrends #TradingBot #HODL"
-    twitter.sendTweet(msg)
+    choices = [low_data, high_data, general_data]
+
+    twitter.sendTweet(random.choice(choices))
 
 
 def thread_update_loop(lock, session, config=Config):
