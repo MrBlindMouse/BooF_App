@@ -13,6 +13,8 @@ accessSecret = envConfig["X_TOKEN_SECRET"]
 bearerToken = envConfig["X_BEARER_TOKEN"]
 
 def sendTweet(quote_data):
+    print("")
+    print(quote_data)
     attempts = 0
     max_attempts = 5
     while attempts < max_attempts:
@@ -26,7 +28,7 @@ def sendTweet(quote_data):
         post = post.strip("'")
         print(f"Generated post: {post} (Length: {len(post)})")
         attempts += 1
-        if len(post) <= 280:
+        if len(post) <= 280 and len(post) > 70:
             break
 
     if len(post) > 280:
