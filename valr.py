@@ -2352,7 +2352,7 @@ if __name__ == "__main__":
             thread_update_loop, lock=dataLock, session=internalSession, config=config
         )
 
-        schedule.every().day.at("12:00").do(xUpdate, config=config)
+        schedule.every().day.at("12:05").do(xUpdate, config=config)
 
         try:
             while True:

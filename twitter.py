@@ -58,7 +58,7 @@ def sendTweet(quote_data):
             print(f"Twitter error details: {e.response.data}")
 
 def generate_post(quote_data):
-    groqClient = Groq(api_key=groqKey)
+    groq_client = Groq(api_key=groqKey)
     prompt = f"Generate an informative market update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'. Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end. Avoid any dates, times, specifics you might get wrong, or hints you're an AI—sound like a human crypto trader."
     response = groq_client.chat.completions.create(
         model="llama-3.1-8b-instant",  # Or another Groq model
