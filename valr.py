@@ -2278,7 +2278,7 @@ def analysis(trend:float) -> str:
 
 
 @bmd_logger
-def xUpdate(config=Config):
+def xUpdate(side, config=Config):
     generalTrend = findGeneralTrend("USDT", config)
 
     trendList = config.USDT
@@ -2297,13 +2297,11 @@ def xUpdate(config=Config):
             high = entry
         if entry["trend"] < low["trend"]:
             low = entry
-    low_data = f"The worst performing coin is {low["base"]} with {analysis(low["trend"])}"
-    high_data = f"The best performing coin is {high["base"]} with {analysis(high["trend"])}"
-    general_data = f"The general crypto market has {analysis(generalTrend)}"
+    low_data = f"The worst performing coin is {low["base"]} with {analysis(low["trend"])}, while the general market has {analysis(generalTrend)}"
+    high_data = f"The best performing coin is {high["base"]} with {analysis(high["trend"])}, while the general market has {analysis(generalTrend)}"
 
-    choices = [low_data, high_data, general_data]
 
-    twitter.sendTweet(random.choice(choices))
+    twitter.sendTweet(low_data if side == "low" else high_data)
 
 
 def thread_update_loop(lock, session, config=Config):
@@ -2357,7 +2355,8 @@ if __name__ == "__main__":
             thread_update_loop, lock=dataLock, session=internalSession, config=config
         )
 
-        schedule.every().day.at("10:37").do(xUpdate, config=config)
+        schedule.every().day.at("10:37").do(xUpdate, side="low", config=config)
+        schedule.every().day.at("11:12").do(xUpdate, side="high", config=config)
 
         try:
             while True:
