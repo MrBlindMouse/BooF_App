@@ -2301,8 +2301,8 @@ def xUpdate(side, config=Config):
             high = entry
         if entry["trend"] < low["trend"]:
             low = entry
-    low_data = f"The worst performing coin is ${low["base"]} with {analysis(low["trend"])}, while the general market has {analysis(generalTrend)}"
-    high_data = f"The best performing coin is ${high["base"]} with {analysis(high["trend"])}, while the general market has {analysis(generalTrend)}"
+    low_data = f"The worst performing coin is ${low["base"]} with {analysis(low["trend"])}, compared to the general market with {analysis(generalTrend)}"
+    high_data = f"The best performing coin is ${high["base"]} with {analysis(high["trend"])}, compared to the general market with {analysis(generalTrend)}"
 
 
     twitter.sendTweet(low_data if side == "low" else high_data)
