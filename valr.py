@@ -2020,6 +2020,7 @@ def checkUserReminders(config=Config):
                     14 * 24 * 60 * 60
                 ):  # 14 Days inactive
                     feedbackEmail(config, user)
+                    reminders.remove(reminder)
                     newEntry = {"code": 5, "ts": ts, "description": "2 Weeks inactive"}
                     reminders.append(newEntry)
 
@@ -2050,6 +2051,9 @@ def checkUserCredits(config=Config):
             found = False
             for reminder in reminders:
                 if int(reminder["code"]) == 7:
+                    found = True
+                    break
+                if int(reminder["code"]) == 5:
                     found = True
                     break
             if not found:
