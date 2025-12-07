@@ -2305,7 +2305,7 @@ def xUpdate(side, config=Config):
     high_data = f"The best performing coin is ${high["base"]} with {analysis(high["trend"])}, compared to the general market with {analysis(generalTrend)}"
 
 
-    twitter.sendTweet(low_data if side == "low" else high_data)
+    twitter.sendTweet(low_data if side == "low" else high_data, side)
 
 
 def thread_update_loop(lock, session, config=Config):

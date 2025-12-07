@@ -1,4 +1,6 @@
 import requests, json, time
+from pathlib import Path
+
 import tweepy
 from dotenv import dotenv_values
 import valr
@@ -12,15 +14,37 @@ accessToken = envConfig["X_TOKEN"]
 accessSecret = envConfig["X_TOKEN_SECRET"]
 bearerToken = envConfig["X_BEARER_TOKEN"]
 
-def sendTweet(quote_data):
+def fetchPrevious(filename):
+    MEMORY_FILE = Path(__file__).with_name(f'{filename}_posts.json')
+    try:
+        if MEMORY_FILE.exists():
+            previous_posts = json.loads(MEMORY_FILE.read_text(encoding='utf-8'))
+            return previous_posts[-3:]
+        else:
+            return []
+    except Exception:
+        return []
+
+def savePost(filename, post_list):
+    MEMORY_FILE = Path(__file__).with_name(f'{filename}_posts.json')
+    try:
+        MEMORY_FILE.write_text(json.dumps(post_list, ensure_ascii=False, indent=4), encoding="utf-8")
+    except:
+        pass
+
+
+
+def sendTweet(quote_data, post_type):
     print("")
     print(quote_data)
     attempts = 0
     max_attempts = 5
+    post = ''
+    previous_posts = fetchPrevious(post_type)
     while attempts < max_attempts:
         post = None
         try:
-            post = generate_post(quote_data)
+            post = generate_post(quote_data, previous_posts)
         except Exception as e:
             print(f"Error during post generation: {e}")
             attempts += 1
@@ -37,7 +61,8 @@ def sendTweet(quote_data):
     if len(post) > 280 and len(post) <= 70:
         print("Failed to generate valid post after max attempts.")
         return
-
+    previous_posts.append(post)
+    savePost(post_type, previous_posts)
     client = tweepy.Client(
         bearer_token = bearerToken,
         consumer_key=clientID,
@@ -63,14 +88,24 @@ def sendTweet(quote_data):
         if hasattr(e, "response") and e.response is not None:
             print(f"Twitter error details: {e.response.data}")
 
-def generate_post(quote_data):
+def generate_post(quote_data, previous_posts):
     try:
         groq_client = Groq(api_key=groqKey)
-        prompt = f"Generate a short crypto market trend update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'. Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end. Avoid any dates, times, specifics or predictions you might get wrong, or hints you're an AI—sound like a human crypto trader."
+        context_block = ''
+        if previous_posts:
+            lines = [f"- {post}" for post in reversed(previous_posts)]
+            context_block = f"\nPrevious posts for context(match tone, never repeat phrasing):\n{'\n'.join(lines)}\n\n"
+
+        prompt = f"""
+            Generate a short crypto market trend update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'.
+            {context_block if previous_posts else ''}
+            Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end.
+            Avoid any dates, times, specifics or predictions you might get wrong, or hints you're an AI—sound like a human crypto trader.
+            """
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",  # Or another Groq model
             messages=[
-                {"role": "system", "content": "You are a crypto reporter on twitter"},
+                {"role": "system", "content": "You are a seasoned crypto trader posting daily market updates on X."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=512,
