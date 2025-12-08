@@ -19,13 +19,14 @@ def fetchPrevious(filename):
     try:
         if MEMORY_FILE.exists():
             previous_posts = json.loads(MEMORY_FILE.read_text(encoding='utf-8'))
-            return previous_posts[-3:]
+            return previous_posts
         else:
             return []
     except Exception:
         return []
 
 def savePost(filename, post_list):
+    post_list["data"] = post_list["data"][-2:]
     MEMORY_FILE = Path(__file__).with_name(f'{filename}_posts.json')
     try:
         MEMORY_FILE.write_text(json.dumps(post_list, ensure_ascii=False, indent=4), encoding="utf-8")
@@ -61,7 +62,8 @@ def sendTweet(quote_data, post_type):
     if len(post) > 280 and len(post) <= 70:
         print("Failed to generate valid post after max attempts.")
         return
-    previous_posts.append(post)
+    previous_posts["post"] = post
+    previous_posts["data"].append(quote_data)
     savePost(post_type, previous_posts)
     client = tweepy.Client(
         bearer_token = bearerToken,
@@ -91,14 +93,21 @@ def sendTweet(quote_data, post_type):
 def generate_post(quote_data, previous_posts):
     try:
         groq_client = Groq(api_key=groqKey)
+        historical_block = ''
+        if previous_posts["post"]:
+            historical_block = f"""
+            Here is the previous post, use it to match the tone and avoid repeating phrases:\n
+            {previous_posts["post"]}\n
+            """
         context_block = ''
-        if previous_posts:
-            lines = [f"- {post}" for post in reversed(previous_posts)]
-            context_block = f"\nPrevious posts for context(match tone, never repeat phrasing):\n{'\n'.join(lines)}\n\n"
+        if previous_posts["data"]:
+            lines = [f"- {post}" for post in reversed(previous_posts["data"])]
+            context_block = f"\nHere is the previous few days of market data, use it for continuity if applicable:\n{'\n'.join(lines)}\n\n"
 
         prompt = f"""
             Generate a short crypto market trend update X post (under 280 chars, aim for 200-250) incorporating this data: '{quote_data}'.
-            {context_block if previous_posts else ''}
+            {historical_block}
+            {context_block}
             Make the post in a neutral or lightly engaging, professional and non-cringe. Use hashtags #VALR #CryptoTrading #BitcoinAfrica at the end.
             Avoid any dates, times, specifics or predictions you might get wrong, or hints you're an AI—sound like a human crypto trader.
             """
@@ -109,7 +118,7 @@ def generate_post(quote_data, previous_posts):
                 {"role": "user", "content": prompt}
             ],
             max_tokens=512,
-            temperature=0.7
+            temperature=0.8
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
