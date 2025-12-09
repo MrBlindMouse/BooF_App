@@ -26,7 +26,7 @@ def fetchPrevious(filename):
         return []
 
 def savePost(filename, post_list):
-    post_list["data"] = post_list["data"][-2:]
+    post_list["data"] = post_list["data"][-3:]
     MEMORY_FILE = Path(__file__).with_name(f'{filename}_posts.json')
     try:
         MEMORY_FILE.write_text(json.dumps(post_list, ensure_ascii=False, indent=4), encoding="utf-8")
