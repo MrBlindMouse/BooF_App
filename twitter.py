@@ -21,9 +21,9 @@ def fetchPrevious(filename):
             previous_posts = json.loads(MEMORY_FILE.read_text(encoding='utf-8'))
             return previous_posts
         else:
-            return []
+            return {}
     except Exception:
-        return []
+        return {}
 
 def savePost(filename, post_list):
     post_list["data"] = post_list["data"][-2:]
@@ -72,7 +72,7 @@ def sendTweet(quote_data, post_type):
         access_token=accessToken,
         access_token_secret=accessSecret
     )
-    follow_up = "If you want to grow your crypto, check out this #VALR trading bot. Designed for long term consistent growth! https://boof-bots.com"
+    follow_up = "If you want to grow your crypto, check out this #VALR trading bot. Designed for long term consistent profits! https://boof-bots.com"
     try:
         result = client.create_tweet(text=post)
         print(json.dumps(result.data, indent=4))
