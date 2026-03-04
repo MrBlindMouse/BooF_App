@@ -31,4 +31,4 @@ if __name__ == "__main__":
     <p>The Postmark Email service is working perfectly!</p>
     """
     recipient = "neljohan1206@gmail.com"
-    sendMail('956780e7-728b-49c0-b9f8-7ceb355bd27f', content, "BooF Test")
+    sendMail('postmark-token-here', content, "BooF Test")
