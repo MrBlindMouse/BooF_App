@@ -13,7 +13,7 @@ Crypto trading bot platform for the [VALR](https://valr.com) exchange. Users can
 
 ---
 
-[A new verified account, no bots loaded yet](docs/Screenshot_New%20Empty.png)
+![A new verified account, no bots loaded yet](docs/Screenshot_New%20Empty.png)
 
 ---
 
